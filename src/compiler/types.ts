@@ -287,6 +287,7 @@ module ts {
 
     export interface Declaration extends Node {
         name?: Identifier;
+        extAttributes?: ExtAttributes;
     }
 
     export interface TypeParameterDeclaration extends Declaration {
@@ -736,6 +737,9 @@ module ts {
         // Returns the constant value this property access resolves to, or 'undefined' if it does 
         // resolve to a constant.
         getConstantValue(node: PropertyAccess): number;
+
+        //Extensions for ExtJs
+        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter);
     }
 
     export enum SymbolFlags {
@@ -819,6 +823,7 @@ module ts {
         exports?: SymbolTable;         // Module exports
         exportSymbol?: Symbol;         // Exported symbol associated with this symbol
         valueDeclaration?: Declaration // First value declaration of the symbol
+        extAttributes: ExtAttributes;  // ExtJs Specific flags
     }
 
     export interface SymbolLinks {
@@ -847,6 +852,9 @@ module ts {
 
         // Values for enum members have been computed, and any errors have been reported for them.
         EnumValuesComputed = 0x00000080,
+
+        //Ext Flags
+        ExtNew = 0x00000100
     }
 
     export interface NodeLinks {
@@ -877,6 +885,8 @@ module ts {
         Tuple              = 0x00002000,  // Tuple
         Anonymous          = 0x00004000,  // Anonymous
         FromSignature      = 0x00008000,  // Created for signature assignment check
+
+        ExtJsClass         = 0x00010000,  // ExtJsClass
 
         Intrinsic = Any | String | Number | Boolean | Void | Undefined | Null,
         StringLike = String | StringLiteral,
@@ -1256,4 +1266,39 @@ module ts {
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
     }
+
+    //ExtJs Types
+    class ExtAttributeNames {
+        public static ConfigInterface = "ConfigInterface".toLowerCase();//Done
+        public static ExtJsClass = "ExtJsClass".toLowerCase();
+        public static Config = "Config".toLowerCase();//Done
+        public static Prop = "Prop".toLowerCase();//Done
+        public static VmField = "vm-field".toLowerCase();//Done
+        public static ModelField = "model-prop".toLowerCase(); //Done
+        public static InjectTypeNames = "@injectTypeNames".toLowerCase();
+    }
+
+    export enum ExtAttributes {
+        ConfigInterface = 0x01,
+        ExtJsClass = 0x02,
+        Config = 0x04,
+        Prop = 0x08,
+        VmField = 0x10,
+        ModelField = 0x20,
+        InjectTypeNames = 0x40,
+        ExtField = VmField | ModelField,
+        ExtGetter = 0x80,
+        ExtSetter = 0x100,
+    }
+
+    export enum ExtAtributesCaseInsensitive {
+        configinterface = 0x01,
+        extjsclass = 0x02,
+        config = 0x04,
+        prop = 0x08,
+        'vm-field' = 0x010,
+        'model-field' = 0x20,
+        injecttypenames = 0x40,
+    }
+    //End ExtJsTypes 
 }

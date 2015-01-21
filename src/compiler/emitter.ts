@@ -1922,6 +1922,9 @@ module ts {
             }
 
             function emitNewExpression(node: NewExpression) {
+                if (resolver.getNodeCheckFlags(node) & NodeCheckFlags.ExtNew) {
+                }
+
                 write("new ");
                 emit(node.func);
                 if (node.arguments) {
@@ -2572,6 +2575,13 @@ module ts {
             }
 
             function emitClassDeclaration(node: ClassDeclaration) {
+
+                if (node.extAttributes & ExtAttributes.ExtJsClass) {
+                    emitExtClassDeclaration(node);
+                    return;
+                }
+
+
                 emitLeadingComments(node);
                 write("var ");
                 emit(node.name);
@@ -2677,6 +2687,241 @@ module ts {
                         emitLeadingCommentsOfPosition((<Block>ctor.body).statements.end);
                     }
                     decreaseIndent();
+                    emitToken(SyntaxKind.CloseBraceToken, ctor ? (<Block>ctor.body).statements.end : node.members.end);
+                    scopeEmitEnd();
+                    emitEnd(<Node>ctor || node);
+                    if (ctor) {
+                        emitTrailingComments(ctor);
+                    }
+                }
+            }
+
+            function emitExtClassDeclaration(node: ClassDeclaration) {
+
+                emitLeadingComments(node);
+                write("Ext.define('");
+                resolver.writeQualifiedTypeAtLocation(node, writer);
+                write("', ");
+                emitToken(SyntaxKind.OpenBraceToken, node.members.pos);
+                writeLine();
+                increaseIndent();
+
+                var needsDelimiter: boolean;
+
+                scopeEmitStart(node);
+                if (node.baseType) {
+                    writeLine();
+                    emitStart(node.baseType);
+                    write("extend: '")
+                    resolver.writeQualifiedTypeAtLocation(node.baseType, writer);
+                    write("'")
+                    emitEnd(node.baseType);
+                    writeDelimiter();
+                }
+
+                // Emit ext config block
+                emitConfigBlock("config", 0, NodeFlags.Static | NodeFlags.Ambient, ExtAttributes.Config, ExtAttributes.ExtField);
+
+                // Emit ext statics block 
+                emitConfigBlock("statics", NodeFlags.Static, NodeFlags.Ambient, 0, 0);
+
+                // Emit normal class mebers
+                emitConfigBlock(null, 0, NodeFlags.Static | NodeFlags.Ambient, 0, ExtAttributes.Config);
+
+                // Emit generated ext getter and setter 
+                emitConfigBlock(null, NodeFlags.Ambient, NodeFlags.Static, ExtAttributes.ExtGetter | ExtAttributes.ExtSetter | ExtAttributes.ExtField, ExtAttributes.Prop);
+
+                emitConstructorOfClass();
+
+                writeLine();
+
+                decreaseIndent();
+                writeLine();
+                emitToken(SyntaxKind.CloseBraceToken, node.members.end);
+                write(");");
+                scopeEmitEnd();
+
+                emitTrailingComments(node);
+
+                function writeDelimiter() {
+                    write(",");
+                    writeLine();
+                }
+
+                function emitMemeber(member: Declaration) {
+                    switch (member.kind) {
+                        case SyntaxKind.Method:
+                            if (member.flags & NodeFlags.Ambient) {
+                                if (member.extAttributes & ExtAttributes.ExtGetter) {
+                                    emitMemberGetter(<MethodDeclaration>member);
+                                } else {
+                                    emitMemberSetter(<MethodDeclaration>member);
+                                }
+                            } else {
+                                emitMemberMethod(<MethodDeclaration>member)
+                            }
+                            break;
+                        case SyntaxKind.Property:
+                            emitMemberProperty(<PropertyDeclaration>member);
+                            break;
+                        default:
+                            emitMemeberDefault(member);
+                    }
+                }
+
+                function emitMemeberDefault(member: Declaration) {
+                    write(member.name.text);
+                    write(":undefined");
+                }
+
+                function emitMemberGetter(member: MethodDeclaration) {
+                    write(member.name.text);
+                    write(" : ");
+                    emitStart(member);
+                    write("function() ");
+                    write("{ return this.get('");
+                    write(member.name.text);
+                    write("'); } ");
+                    emitEnd(member)
+                }
+
+                function emitMemberSetter(member: MethodDeclaration) {
+                    write(member.name.text);
+                    write(" : ");
+                    emitStart(member);
+                    write("function(value) ");
+                    write("{ return this.set('");
+                    write(member.name.text);
+                    write("', value); } ");
+                    emitEnd(member)
+                }
+
+                function emitMemberProperty(member: PropertyDeclaration) {
+                    write(member.name.text);
+                    if (member.initializer) {
+                        write(" : ");
+                        emit(member.initializer);
+                    } else {
+                        write(" : null");
+                    }
+                }
+
+                function emitMemberMethod(member: MethodDeclaration) {
+                    if (!member.body) {
+                        return;
+                    }
+
+                    writeLine();
+                    emitLeadingComments(member);
+                    emitStart(member);
+                    emitStart(member.name);
+                    emitNode(member.name);
+
+                    emitEnd((<MethodDeclaration>member).name);
+                    write(" : ");
+                    emitStart(member);
+                    emitFunctionDeclaration(<MethodDeclaration>member);
+                    emitEnd(member);
+                    emitEnd(member);
+
+                    emitTrailingComments(member);
+                }
+
+                function emitConfigBlock(blockName: string, flags: NodeFlags, notFlags: NodeFlags, extAttributes: ExtAttributes, notExtAttributes: ExtAttributes) {
+
+                    if (blockName) {
+                        write(blockName);
+                        write(" : {");
+                        increaseIndent();
+                        writeLine();
+                    }
+
+                    var currentWriterPos = writer.getTextPos();
+                    var hasContent = false;
+                    for (var i = 0, n = node.members.length; i < n; i++) {
+                        var member = <Declaration>node.members[i];
+                        if (member.kind == SyntaxKind.Constructor) continue;
+                        if (flags != 0 && !(member.flags & flags)) continue;
+                        if (member.flags & notFlags) continue;
+                        if (extAttributes != 0 && !(member.extAttributes & extAttributes)) continue;
+                        if (member.extAttributes & notExtAttributes) continue;
+
+                        if (currentWriterPos !== writer.getTextPos()) {
+                            write(", ");
+                            writeLine();
+                        }
+                        currentWriterPos = writer.getTextPos();
+                        emitMemeber(member);
+                        hasContent = true;
+                    }
+
+                    if (blockName) {
+                        writeLine();
+                        decreaseIndent();
+                        write("}");
+                        writeDelimiter();
+                    } else if (hasContent) {
+                        writeDelimiter();
+                    }
+
+                }
+
+                function emitConstructorOfClass() {
+                    forEach(node.members, member => {
+                        if (member.kind === SyntaxKind.Constructor && !(<ConstructorDeclaration>member).body) {
+                            emitPinnedOrTripleSlashComments(member);
+                        }
+                    });
+                    var ctor = forEach(node.members, member => {
+                        if (member.kind === SyntaxKind.Constructor && (<ConstructorDeclaration>member).body) {
+                            return <ConstructorDeclaration>member;
+                        }
+                    });
+
+                    if (ctor) {
+                        emitLeadingComments(ctor);
+                    }
+
+                    emitStart(<Node>ctor || node);
+                    write("constructor: function ");
+
+                    emitSignatureParameters(ctor);
+                    increaseIndent();
+
+                    write(" { ");
+                    scopeEmitStart(node, "constructor");
+
+                    emitCaptureThisForNodeIfNecessary(node);
+
+                    if (ctor) {
+                        emitDefaultValueAssignments(ctor);
+                        emitRestParameter(ctor);
+                        if (node.baseType) {
+                            var superCall = findInitialSuperCall(ctor);
+                            if (superCall) {
+                                writeLine();
+                                emit(superCall);
+                            }
+                        }
+                        emitParameterPropertyAssignments(ctor);
+                    }
+                    else {
+                        if (node.baseType) {
+                            writeLine();
+                            emitStart(node.baseType);
+                            write("this.callParent(arguments);");
+                            emitEnd(node.baseType);
+                        }
+                    }
+
+                    if (ctor) {
+                        var statements: Node[] = (<Block>ctor.body).statements;
+                        if (superCall) statements = statements.slice(1);
+                        emitLines(statements);
+                    }
+
+                    decreaseIndent();
+                    writeLine();
                     emitToken(SyntaxKind.CloseBraceToken, ctor ? (<Block>ctor.body).statements.end : node.members.end);
                     scopeEmitEnd();
                     emitEnd(<Node>ctor || node);

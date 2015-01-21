@@ -651,7 +651,7 @@ module ts {
         }
 
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
-            var type = <ObjectType>createType(kind);
+            var type = <ObjectType>createType(kind | (symbol && symbol.extAttributes & ExtAttributes.ExtJsClass ? TypeFlags.ExtJsClass : 0));
             type.symbol = symbol;
             return type;
         }
@@ -4630,6 +4630,10 @@ module ts {
                 // Another error has already been reported
                 return resolveErrorCall(node);
             }
+            if (expressionType.flags & TypeFlags.ExtJsClass) {
+                getNodeLinks(node).flags |= NodeCheckFlags.ExtNew;
+            }
+
             // TS 1.0 spec: 4.11
             // If ConstructExpr is of type Any, Args can be any argument
             // list and the result of the operation is of type Any.
@@ -7696,6 +7700,21 @@ module ts {
             writeType(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags);
         }
 
+        function writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter) {
+
+            function writeQualifiedSymbol(symbol: Symbol, writer: SymbolWriter) {
+                if (symbol.parent) {
+                    writeQualifiedSymbol(symbol.parent, writer);
+                    writer.writeKind(".", SymbolDisplayPartKind.punctuation);
+                }
+                writer.writeSymbol(symbol.name, symbol);
+            }
+            // Get type of the symbol if this is the valid symbol otherwise get type at location
+            var symbol = getSymbolOfNode(location);
+            var type = symbol && !(symbol.flags & SymbolFlags.TypeLiteral) ? getTypeOfSymbol(symbol) : getTypeFromTypeNode(location);
+            writeQualifiedSymbol(type.symbol, writer);
+        }
+
         function createResolver(): EmitResolver {
             return {
                 getProgram: () => program,
@@ -7714,6 +7733,7 @@ module ts {
                 isSymbolAccessible: isSymbolAccessible,
                 isImportDeclarationEntityNameReferenceDeclarationVisible: isImportDeclarationEntityNameReferenceDeclarationVisible,
                 getConstantValue: getConstantValue,
+                writeQualifiedTypeAtLocation: writeQualifiedTypeAtLocation,
             }
         }
 

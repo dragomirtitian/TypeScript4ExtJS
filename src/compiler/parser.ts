@@ -64,7 +64,7 @@ module ts {
 
     // Return display name of an identifier
     export function identifierToString(identifier: Identifier) {
-        return identifier.kind === SyntaxKind.Missing ? "(Missing)" : getTextOfNode(identifier);
+        return identifier.kind === SyntaxKind.Missing ? "(Missing)" : identifier.text;
     }
 
     export function createDiagnosticForNode(node: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): Diagnostic {
@@ -675,7 +675,7 @@ module ts {
         var inFunctionBody = false;
         var inSwitchStatement = ControlBlockContext.NotNested;
         var inIterationStatement = ControlBlockContext.NotNested;
-
+        
         // The following is a state machine that tracks what labels are in our current parsing
         // context. So if we are parsing a node that is nested (arbitrarily deeply) in a label,
         // it will be tracked in this data structure. It is used for checking break/continue
@@ -1171,6 +1171,18 @@ module ts {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     var element = parseElement();
                     result.push(element);
+
+                    switch (kind) {
+                        case ParsingContext.ClassMembers:
+                            break;
+                        case ParsingContext.ModuleElements:
+                            var declaration = <Declaration>element;
+                            if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
+                                result.push(<T><any>parseConfigInterface(<ClassDeclaration><any>element));
+                            }
+                            break;
+                    }
+
                     // test elements only if we are not already in strict mode
                     if (!isInStrictMode && checkForStrictMode) {
                         if (isPrologueDirective(element)) {
@@ -3192,6 +3204,7 @@ module ts {
                 if (inAmbientContext && property.initializer && errorCountBeforePropertyDeclaration === file.syntacticErrors.length) {
                     grammarErrorAtPos(initializerStart, initializerFirstTokenLength, Diagnostics.Initializers_are_not_allowed_in_ambient_contexts);
                 }
+                parseExtAttributes(property, file, scanner);
                 return finishNode(property);
             }
         }
@@ -3608,6 +3621,139 @@ module ts {
             return finishNode(node);
         }
 
+        //ExtJs Parsing
+
+        function createFakeIdentifier(text: string) {
+            var id = <Identifier>new (nodeConstructors[SyntaxKind.Identifier] || (nodeConstructors[SyntaxKind.Identifier] = objectAllocator.getNodeConstructor(SyntaxKind.Identifier)))();
+            id.text = text;
+            id.pos = 0;
+            id.end = 0;
+            return id;
+        }
+
+        function createFakeNode(kind: SyntaxKind, pos?: number): Node {
+            var node = new (nodeConstructors[kind] || (nodeConstructors[kind] = objectAllocator.getNodeConstructor(kind)))();
+            pos = pos || 0;
+            node.pos = pos;
+            node.end = pos;
+            return node;
+        }
+
+        function parseConfigInterface<T extends Declaration>(classDeclaration: ClassDeclaration): InterfaceDeclaration {
+
+            var node = <InterfaceDeclaration>createFakeNode(SyntaxKind.InterfaceDeclaration, classDeclaration.pos);
+            node.name = createFakeIdentifier("I" + classDeclaration.name.text);
+            node.flags = classDeclaration.flags;
+            var membersToRemove: { [key: string]: boolean };
+            var classMembers = classDeclaration.members;
+
+            function createAmbientProperty(m: PropertyDeclaration) {
+                function createGetter(propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, m.pos);
+                    scanner.setTextPos(m.type.pos);
+                    nextToken();
+                    methodDeclaration.type = parseType();
+                    methodDeclaration.name = createFakeIdentifier("get" + propperName);
+                    methodDeclaration.parameters = <NodeArray<Node>>[];
+                    methodDeclaration.flags |= NodeFlags.Ambient;
+                    methodDeclaration.extAttributes = ExtAttributes.ExtGetter | attrs;
+
+                    return methodDeclaration;
+                }
+
+                function createSetter(propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method);
+
+                    methodDeclaration.type = createFakeNode(SyntaxKind.VoidKeyword);
+                    methodDeclaration.name = createFakeIdentifier("set" + propperName);
+                    methodDeclaration.parameters = <NodeArray<Node>>[];
+                    methodDeclaration.extAttributes = ExtAttributes.ExtSetter | attrs;
+
+                    var parameter = <ParameterDeclaration>createFakeNode(SyntaxKind.Parameter);
+                    scanner.setTextPos(m.type.pos);
+                    nextToken();
+                    parameter.type = parseType();
+                    parameter.name = createFakeIdentifier("value");
+                    methodDeclaration.parameters.push(parameter);
+
+                    methodDeclaration.flags |= NodeFlags.Ambient;
+
+                    return methodDeclaration;
+                }
+
+                var name = m.name.text;
+                var propperName = name.substr(0, 1).toUpperCase() + name.substr(1);
+
+                classMembers.push(createGetter(propperName, m.extAttributes));
+                classMembers.push(createSetter(propperName, m.extAttributes));
+            }
+
+            function createAmbientVmProperty(m: PropertyDeclaration) {
+                createAmbientProperty(m);
+                if (membersToRemove == undefined) membersToRemove = {};
+                membersToRemove[m.name.text] = true;
+            }
+
+            var members = lookAhead(() => {
+                var members = <NodeArray<Node>>[];
+
+                forEach(classMembers, (m: PropertyDeclaration) => {
+                    var attrs = m.extAttributes;
+                    if (!attrs) return
+                    if (attrs & ExtAttributes.Config) {
+                        scanner.setTextPos(m.pos);
+                        nextToken();
+                        var configMember = parseClassMemberDeclaration();
+                        if (!(configMember.flags & (NodeFlags.Protected | NodeFlags.Private))) {
+                            configMember.flags |= NodeFlags.QuestionMark;
+                            members.push(configMember);
+                        }
+                    }
+
+                    if (attrs & ExtAttributes.ExtField) {
+                        createAmbientVmProperty(m);
+                    }
+                    else if (attrs & ExtAttributes.Prop) {
+                        createAmbientProperty(m);
+                    }
+                });
+                return members;
+            });
+
+
+            members.pos = classMembers.pos;
+            members.end = classMembers.end;
+
+            node.members = members;
+
+            if (membersToRemove) {
+                for (var ri = 0, wi = 0, n = classMembers.length; ri < n; ri++, wi++) {
+                    var member = <Declaration>classMembers[ri];
+                    if (member.name && membersToRemove[member.name.text]) {
+                        wi--
+                    } else if (wi != ri) {
+                        classMembers[wi] = member;
+                    }
+                }
+                classMembers.length = ri - 1;
+            }
+
+            return node;
+        }
+
+        function parseExtAttributes(node: Declaration, sourceFileOfNode: SourceFile, scanner: Scanner) {
+            var comments = getLeadingCommentRangesOfNode(node, sourceFileOfNode);
+            var text = sourceFileOfNode.text;
+            forEach(comments, comment=> {
+                if (text.charCodeAt(comment.pos + 0) !== CharacterCodes.slash ||
+                    text.charCodeAt(comment.pos + 1) !== CharacterCodes.asterisk ||
+                    text.charCodeAt(comment.pos + 2) !== CharacterCodes.at) return;
+
+                node.extAttributes |= ExtAtributesCaseInsensitive[text.substring(comment.pos + 3, comment.end - 2).toLowerCase()];
+            });
+        }
+        //End ExtJs
+
         function parseModuleBody(): Block {
             var node = <Block>createNode(SyntaxKind.ModuleBlock);
             if (parseExpected(SyntaxKind.OpenBraceToken)) {
@@ -3770,7 +3916,7 @@ module ts {
                 default:
                     error(Diagnostics.Declaration_expected);
             }
-
+            parseExtAttributes(result, file, scanner);
             inAmbientContext = saveInAmbientContext;
             return result;
         }
