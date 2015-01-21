@@ -288,6 +288,7 @@ module ts {
         Let                 = 0x00000800,  // Variable declaration
         Const               = 0x00001000,  // Variable declaration
         OctalLiteral        = 0x00002000,
+        FakeNode            = 0x00004000,  // Fake Node Inserted during parsing
 
         Modifier = Export | Ambient | Public | Private | Protected | Static,
         AccessibilityModifier = Public | Private | Protected,
@@ -359,6 +360,7 @@ module ts {
     export interface Declaration extends Node {
         _declarationBrand: any;
         name?: DeclarationName;
+        extAttributes?: ExtAttributes;
     }
 
     export interface ComputedPropertyName extends Node {
@@ -451,6 +453,7 @@ module ts {
     // of the method, or use helpers like isObjectLiteralMethodDeclaration
     export interface MethodDeclaration extends FunctionLikeDeclaration, ClassElement, ObjectLiteralElement {
         body?: Block;
+        linkedFieldName?: string;
     }
 
     export interface ConstructorDeclaration extends FunctionLikeDeclaration, ClassElement {
@@ -1042,6 +1045,11 @@ module ts {
         // Returns the constant value this property access resolves to, or 'undefined' for a non-constant
         getConstantValue(node: PropertyAccessExpression | ElementAccessExpression): number;
         isEmitBlocked(sourceFile?: SourceFile): boolean;
+
+        //Extensions for ExtJs
+        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter): void;
+        writeQualifiedResolvedTypeAtLocation(location: Node, writer: SymbolWriter): void;
+        writeSymbolTypeParameters(location: Node, handler: (t: Type, w: (t: Type, writer: SymbolWriter) => void) => void): void;
     }
 
     export const enum SymbolFlags {
@@ -1138,6 +1146,7 @@ module ts {
         exportSymbol?: Symbol;         // Exported symbol associated with this symbol
         valueDeclaration?: Declaration // First value declaration of the symbol,
         constEnumOnlyModule?: boolean // For modules - if true - module contains only const enums or other modules with only const enums.
+        extAttributes: ExtAttributes;  // ExtJs Specific flags
     }
 
     export interface SymbolLinks {
@@ -1167,6 +1176,10 @@ module ts {
 
         // Values for enum members have been computed, and any errors have been reported for them.
         EnumValuesComputed = 0x00000080,
+
+        //Ext Flags
+        EmitExtJs = 0x00000100,
+        EmitTypeParameterNames = 0x00000200
     }
 
     export interface NodeLinks {
@@ -1201,6 +1214,9 @@ module ts {
         FromSignature      = 0x00010000,  // Created for signature assignment check
 
         Intrinsic  = Any | String | Number | Boolean | Void | Undefined | Null,
+
+        ExtJsClass = 0x00010000,  // ExtJsClass
+
         StringLike = String | StringLiteral,
         NumberLike = Number | Enum,
         ObjectType = Class | Interface | Reference | Tuple | Anonymous,
@@ -1573,4 +1589,39 @@ module ts {
         useCaseSensitiveFileNames(): boolean;
         getNewLine(): string;
     }
+
+    //ExtJs Types
+    class ExtAttributeNames {
+        public static ConfigInterface = "ConfigInterface".toLowerCase();//Done
+        public static ExtJsClass = "ExtJsClass".toLowerCase();
+        public static Config = "Config".toLowerCase();//Done
+        public static Prop = "Prop".toLowerCase();//Done
+        public static VmField = "vm-field".toLowerCase();//Done
+        public static ModelField = "model-field".toLowerCase(); //Done
+        public static InjectTypeNames = "@injectTypeNames".toLowerCase();
+    }
+
+    export enum ExtAttributes {
+        ConfigInterface = 0x01,
+        ExtJsClass = 0x02,
+        Config = 0x04,
+        Prop = 0x08,
+        VmField = 0x10,
+        ModelField = 0x20,
+        InjectTypeNames = 0x40,
+        ExtField = VmField | ModelField,
+        ExtGetter = 0x80,
+        ExtSetter = 0x100,
+    }
+
+    export enum ExtAtributesCaseInsensitive {
+        configinterface = 0x01,
+        extjsclass = 0x02,
+        config = 0x04,
+        prop = 0x08,
+        'vm-field' = 0x010,
+        'model-field' = 0x20,
+        injecttypenames = 0x40,
+    }
+    //End ExtJsTypes 
 }

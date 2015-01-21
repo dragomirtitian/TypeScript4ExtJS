@@ -92,6 +92,7 @@ module ts {
             if (symbolKind & SymbolFlags.HasMembers && !symbol.members) symbol.members = {};
             node.symbol = symbol;
             if (symbolKind & SymbolFlags.Value && !symbol.valueDeclaration) symbol.valueDeclaration = node;
+            symbol.extAttributes |= node.extAttributes
         }
 
         // Should not be called on a declaration with a computed property name.

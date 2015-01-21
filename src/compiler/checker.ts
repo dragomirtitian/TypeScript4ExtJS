@@ -665,7 +665,7 @@ module ts {
         }
 
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
-            var type = <ObjectType>createType(kind);
+            var type = <ObjectType>createType(kind | (symbol && symbol.extAttributes & ExtAttributes.ExtJsClass ? TypeFlags.ExtJsClass : 0));
             type.symbol = symbol;
             return type;
         }
@@ -5903,6 +5903,10 @@ module ts {
 
         function resolveNewExpression(node: NewExpression, candidatesOutArray: Signature[]): Signature {
             var expressionType = checkExpression(node.expression);
+            if (expressionType.flags & TypeFlags.ExtJsClass) {
+                getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
+            }
+
             // TS 1.0 spec: 4.11
             // If ConstructExpr is of type Any, Args can be any argument
             // list and the result of the operation is of type Any.
@@ -6003,6 +6007,9 @@ module ts {
         function checkCallExpression(node: CallExpression): Type {
             var signature = getResolvedSignature(node);
             if (node.expression.kind === SyntaxKind.SuperKeyword) {
+                if (signature.resolvedReturnType.flags & TypeFlags.ExtJsClass) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
+                }
                 return voidType;
             }
             if (node.kind === SyntaxKind.NewExpression) {
@@ -6017,6 +6024,19 @@ module ts {
                         error(node, Diagnostics.new_expression_whose_target_lacks_a_construct_signature_implicitly_has_an_any_type);
                     }
                     return anyType;
+                }
+            }
+
+            if (signature.declaration && signature.declaration.symbol) {
+                var funcSymbol = signature.declaration.symbol;
+                if (funcSymbol.extAttributes & ExtAttributes.InjectTypeNames) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitTypeParameterNames;
+                }
+                if (node.expression.kind === SyntaxKind.PropertyAccessExpression
+                    && (<PropertyAccessExpression>node.expression).expression.kind === SyntaxKind.SuperKeyword
+                    && funcSymbol.parent
+                    && funcSymbol.parent.extAttributes & ExtAttributes.ExtJsClass) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
                 }
             }
             return getReturnTypeOfSignature(signature);
@@ -9349,6 +9369,64 @@ module ts {
             getSymbolDisplayBuilder().buildTypeDisplay(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags);
         }
 
+
+        function writeQualifiedSymbol(symbol: Symbol, writer: SymbolWriter) {
+            var parent = symbol.parent;
+            if (!parent) {
+                var decl = symbol.declarations[0];
+                if (decl && decl.parent && decl.parent.parent) {
+                    parent = decl.parent.parent.symbol;
+                }
+            }
+
+            if (parent) {
+                writeQualifiedSymbol(parent, writer);
+                writer.writePunctuation(".");
+            }
+            writer.writeSymbol(symbol.name, symbol);
+        }
+
+        function writeQualifiedTypeAtLocation(location: TypeNode|LiteralExpression, writer: SymbolWriter): void {
+
+            // Get type of the symbol if this is the valid symbol otherwise get type at location
+            var symbol = getSymbolOfNode(location);
+            var type = symbol && !(symbol.flags & SymbolFlags.TypeLiteral) ? getTypeOfSymbol(symbol) : getTypeFromTypeNode(location);
+            writeQualifiedSymbol(type.symbol, writer);
+        }
+
+        function writeQualifiedResolvedTypeAtLocation(location: Node, writer: SymbolWriter): void {
+
+            // Get type of the symbol if this is the valid symbol otherwise get type at location
+            var symbol = getNodeLinks(location).resolvedSymbol;
+            symbol = symbol.exportSymbol || symbol;
+            writeQualifiedSymbol(symbol, writer);
+        }
+
+        function writeSymbolTypeParameters(location: Node, handler: (t: Type, w: (t: Type, writer: SymbolWriter) => void) => void): void {
+            var signature = getNodeLinks(location).resolvedSignature;
+            if (signature == null) return;
+
+            var originalTarget = signature.target;
+            Debug.assert(originalTarget != null);
+            function writeTypeNoNewLine(t: Type, writer: SymbolWriter) {
+                var oldWriteLine = writer.writeLine;
+                writer.writeLine = () => { }
+                getSymbolDisplayBuilder().buildTypeDisplay(t, writer, <Node>{}, TypeFormatFlags.None);
+                writer.writeLine = oldWriteLine;
+            }
+
+            var typeParameters = originalTarget.typeParameters;
+            for (var i = 0, n = typeParameters.length; i < n; i++) {
+                var type = signature.mapper(typeParameters[i]);
+
+                if (type.symbol) {
+                    handler(type, writeTypeNoNewLine);
+                } else {
+                    handler(type, writeTypeNoNewLine);
+                }
+            }
+        }
+
         function createResolver(): EmitResolver {
             return {
                 getProgram: () => program,
@@ -9367,7 +9445,10 @@ module ts {
                 writeReturnTypeOfSignatureDeclaration,
                 isSymbolAccessible,
                 isEntityNameVisible,
-                getConstantValue,
+                getConstantValue, 
+                writeQualifiedTypeAtLocation,
+                writeQualifiedResolvedTypeAtLocation,
+                writeSymbolTypeParameters
             };
         }
 

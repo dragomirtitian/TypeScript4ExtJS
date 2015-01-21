@@ -910,7 +910,7 @@ module ts {
         }
 
         function emitInterfaceDeclaration(node: InterfaceDeclaration) {
-            if (resolver.isDeclarationVisible(node)) {
+            if (!(node.flags & NodeFlags.FakeNode) && resolver.isDeclarationVisible(node)) {
                 emitJsDocComments(node);
                 emitModuleElementDeclarationFlags(node);
                 write("interface ");
@@ -1341,6 +1341,8 @@ module ts {
         }
 
         function emitNode(node: Node) {
+            if (node.flags & NodeFlags.FakeNode) return;
+
             switch (node.kind) {
                 case SyntaxKind.Constructor:
                 case SyntaxKind.FunctionDeclaration:
@@ -1471,7 +1473,17 @@ module ts {
         var newLine = program.getCompilerHost().getNewLine();
 
         function emitJavaScript(jsFilePath: string, root?: SourceFile) {
-            var writer = createTextWriter(newLine);
+            var writer = <EmitTextWriterWithSymbolWriter>createTextWriter(newLine);
+
+            writer.trackSymbol = () => { };
+            writer.writeKeyword = writer.write;
+            writer.writeOperator = writer.write;
+            writer.writePunctuation = writer.write;
+            writer.writeSpace = writer.write;
+            writer.writeStringLiteral = writer.writeLiteral;
+            writer.writeParameter = writer.write;
+            writer.writeSymbol = writer.write;
+
             var write = writer.write;
             var writeTextOfNode = writer.writeTextOfNode;
             var writeLine = writer.writeLine;
@@ -2331,6 +2343,12 @@ module ts {
 
             function emitCallExpression(node: CallExpression) {
                 var superCall = false;
+                var flags = resolver.getNodeCheckFlags(node);
+                if (flags & NodeCheckFlags.EmitExtJs) {
+                    emitExtJsSuperCallExpression(node);
+                    return;
+                }
+
                 if (node.expression.kind === SyntaxKind.SuperKeyword) {
                     write("_super");
                     superCall = true;
@@ -2346,16 +2364,28 @@ module ts {
                         write(", ");
                         emitCommaList(node.arguments, /*includeTrailingComma*/ false);
                     }
+
+                    if (flags & NodeCheckFlags.EmitTypeParameterNames) {
+                        emitTypeParameters(node);
+                    }
                     write(")");
                 }
                 else {
                     write("(");
                     emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                    if (flags & NodeCheckFlags.EmitTypeParameterNames) {
+                        emitTypeParameters(node);
+                    }
                     write(")");
                 }
             }
 
             function emitNewExpression(node: NewExpression) {
+                if (resolver.getNodeCheckFlags(node) & NodeCheckFlags.EmitExtJs) {
+                    emitExtNewExpression(node);
+                    return;
+                }
+
                 write("new ");
                 emit(node.expression);
                 if (node.arguments) {
@@ -3000,6 +3030,10 @@ module ts {
             function emitMemberFunctions(node: ClassDeclaration) {
                 forEach(node.members, member => {
                     if (member.kind === SyntaxKind.Method) {
+                        if (member.flags & NodeFlags.FakeNode) {
+                            return emitAutoProperty(node, <MethodDeclaration>member);
+                        }
+
                         if (!(<MethodDeclaration>member).body) {
                             return emitPinnedOrTripleSlashComments(member);
                         }
@@ -3074,6 +3108,13 @@ module ts {
             }
 
             function emitClassDeclaration(node: ClassDeclaration) {
+
+                if (node.extAttributes & ExtAttributes.ExtJsClass) {
+                    emitExtClassDeclaration(node);
+                    return;
+                }
+
+
                 emitLeadingComments(node);
                 write("var ");
                 emit(node.name);
@@ -3188,6 +3229,307 @@ module ts {
                     }
                 }
             }
+
+            //Ext Js Emit Support
+            function emitExtClassDeclaration(node: ClassDeclaration) {
+
+                emitLeadingComments(node);
+                write("Ext.define('");
+                resolver.writeQualifiedTypeAtLocation(node, writer);
+                write("', ");
+                emitToken(SyntaxKind.OpenBraceToken, node.members.pos);
+                writeLine();
+                increaseIndent();
+
+                var needsDelimiter: boolean;
+
+                scopeEmitStart(node);
+
+                var baseType = node.heritageClauses[0] && node.heritageClauses[0].types[0];
+                
+                if (baseType) {
+                    writeLine();
+                    emitStart(baseType);
+                    write("extend: '")
+                    resolver.writeQualifiedTypeAtLocation(baseType, writer);
+                    write("'")
+                    emitEnd(baseType);
+                    writeDelimiter();
+                }
+
+                // Emit ext config block
+                emitConfigBlock("config", 0, NodeFlags.Static | NodeFlags.FakeNode, ExtAttributes.Config, ExtAttributes.ExtField);
+
+                // Emit ext statics block 
+                emitConfigBlock("statics", NodeFlags.Static, NodeFlags.FakeNode, 0, 0);
+
+                // Emit normal class mebers
+                emitConfigBlock(null, 0, NodeFlags.Static | NodeFlags.FakeNode, 0, ExtAttributes.Config);
+
+                // Emit generated ext getter and setter 
+                emitConfigBlock(null, NodeFlags.FakeNode, NodeFlags.Static, ExtAttributes.ExtGetter | ExtAttributes.ExtSetter | ExtAttributes.ExtField, ExtAttributes.Prop);
+
+                emitConstructorOfClass();
+
+                writeLine();
+
+                decreaseIndent();
+                writeLine();
+                emitToken(SyntaxKind.CloseBraceToken, node.members.end);
+                write(");");
+                scopeEmitEnd();
+
+                emitTrailingComments(node);
+
+                function writeDelimiter() {
+                    write(",");
+                    writeLine();
+                }
+
+                function emitMemeber(member: Declaration) {
+                    switch (member.kind) {
+                        case SyntaxKind.Method:
+                            if (member.flags & NodeFlags.FakeNode) {
+                                if (member.extAttributes & ExtAttributes.ExtGetter) {
+                                    emitMemberGetter(<MethodDeclaration>member);
+                                } else {
+                                    emitMemberSetter(<MethodDeclaration>member);
+                                }
+                            } else {
+                                emitMemberMethod(<MethodDeclaration>member)
+                            }
+                            break;
+                        case SyntaxKind.Property:
+                            emitMemberProperty(<PropertyDeclaration>member);
+                            break;
+                        default:
+                            emitMemeberDefault(member);
+                    }
+                }
+
+                function emitMemeberDefault(member: Declaration) {
+                    write(declarationNameToString(member.name));
+                    write(":undefined");
+                }
+
+                function emitMemberGetter(member: MethodDeclaration) {
+                    write(declarationNameToString(member.name));
+                    write(" : ");
+                    emitStart(member);
+                    write("function() ");
+                    write("{ return this.get('");
+                    write(member.linkedFieldName);
+                    write("'); } ");
+                    emitEnd(member)
+                }
+
+                function emitMemberSetter(member: MethodDeclaration) {
+                    write(declarationNameToString(member.name));
+                    write(" : ");
+                    emitStart(member);
+                    write("function(value) ");
+                    write("{ return this.set('");
+                    write(member.linkedFieldName);
+                    write("', value); } ");
+                    emitEnd(member)
+                }
+
+                function emitMemberProperty(member: PropertyDeclaration) {
+                    write(declarationNameToString(member.name));
+                    if (member.initializer) {
+                        write(" : ");
+                        emit(member.initializer);
+                    } else {
+                        write(" : null");
+                    }
+                }
+
+                function emitMemberMethod(member: MethodDeclaration) {
+                    if (!member.body) {
+                        return;
+                    }
+
+                    writeLine();
+                    emitLeadingComments(member);
+                    emitStart(member);
+                    emitStart(member.name);
+                    emitNode(member.name);
+
+                    emitEnd((<MethodDeclaration>member).name);
+                    write(" : ");
+                    emitStart(member);
+                    emitFunctionDeclaration(<MethodDeclaration>member);
+                    emitEnd(member);
+                    emitEnd(member);
+
+                    emitTrailingComments(member);
+                }
+
+                function emitConfigBlock(blockName: string, flags: NodeFlags, notFlags: NodeFlags, extAttributes: ExtAttributes, notExtAttributes: ExtAttributes) {
+
+                    if (blockName) {
+                        write(blockName);
+                        write(" : {");
+                        increaseIndent();
+                        writeLine();
+                    }
+
+                    var currentWriterPos = writer.getTextPos();
+                    var hasContent = false;
+                    for (var i = 0, n = node.members.length; i < n; i++) {
+                        var member = <Declaration>node.members[i];
+                        if (member.kind == SyntaxKind.Constructor) continue;
+                        if (flags != 0 && !(member.flags & flags)) continue;
+                        if (member.flags & notFlags) continue;
+                        if (extAttributes != 0 && !(member.extAttributes & extAttributes)) continue;
+                        if (member.extAttributes & notExtAttributes) continue;
+
+                        if (currentWriterPos !== writer.getTextPos()) {
+                            write(", ");
+                            writeLine();
+                        }
+                        currentWriterPos = writer.getTextPos();
+                        emitMemeber(member);
+                        hasContent = true;
+                    }
+
+                    if (blockName) {
+                        writeLine();
+                        decreaseIndent();
+                        write("}");
+                        writeDelimiter();
+                    } else if (hasContent) {
+                        writeDelimiter();
+                    }
+
+                }
+
+                function emitConstructorOfClass() {
+                    forEach(node.members, member => {
+                        if (member.kind === SyntaxKind.Constructor && !(<ConstructorDeclaration>member).body) {
+                            emitPinnedOrTripleSlashComments(member);
+                        }
+                    });
+                    var ctor = forEach(node.members, member => {
+                        if (member.kind === SyntaxKind.Constructor && (<ConstructorDeclaration>member).body) {
+                            return <ConstructorDeclaration>member;
+                        }
+                    });
+
+                    if (ctor) {
+                        emitLeadingComments(ctor);
+                    }
+
+                    emitStart(<Node>ctor || node);
+                    write("constructor: function ");
+
+                    emitSignatureParameters(ctor);
+                    increaseIndent();
+
+                    write(" { ");
+                    scopeEmitStart(node, "constructor");
+
+                    emitCaptureThisForNodeIfNecessary(node);
+                    
+                    if (ctor) {
+                        emitDefaultValueAssignments(ctor);
+                        emitRestParameter(ctor);
+
+                        if (baseType) {
+                            var superCall = findInitialSuperCall(ctor);
+                            if (superCall) {
+                                writeLine();
+                                emit(superCall);
+                            }
+                        }
+
+                        emitParameterPropertyAssignments(ctor);
+                    }
+                    else {
+                        if (baseType) {
+                            writeLine();
+                            emitStart(baseType);
+                            write("this.callParent(arguments);");
+                            emitEnd(baseType);
+                        }
+                    }
+
+                    if (ctor) {
+                        var statements: Node[] = (<Block>ctor.body).statements;
+                        if (superCall) statements = statements.slice(1);
+                        emitLines(statements);
+                    }
+
+                    decreaseIndent();
+                    writeLine();
+                    emitToken(SyntaxKind.CloseBraceToken, ctor ? (<Block>ctor.body).statements.end : node.members.end);
+                    scopeEmitEnd();
+                    emitEnd(<Node>ctor || node);
+                    if (ctor) {
+                        emitTrailingComments(ctor);
+                    }
+                }
+            }
+
+            function emitExtNewExpression(node: NewExpression) {
+                write("Ext.create('");
+                resolver.writeQualifiedResolvedTypeAtLocation(node.expression, writer);
+                write("'");
+                if (node.arguments && node.arguments.length) {
+                    write(",");
+                    emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                }
+
+                write(")");
+            }
+
+            function emitExtJsSuperCallExpression(node: CallExpression) {
+
+                write("this.callParent([");
+                emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                write("])");
+            }
+            function emitTypeParameters(node: CallExpression) {
+                
+                var emitComma = node.arguments.length != 0;
+                resolver.writeSymbolTypeParameters(node, (t, w) => {
+                    if (emitComma) writer.write(",");
+                    writer.write("'");
+                    w(t, writer);
+                    writer.write("'");
+                });
+            }
+
+            function emitAutoProperty(node: ClassDeclaration, member: MethodDeclaration) {
+                writeLine();
+                emitLeadingComments(member);
+                emitStart(member);
+                emitStart((<MethodDeclaration>member).name);
+                emitNode(node.name);
+                if (!(member.flags & NodeFlags.Static)) {
+                    write(".prototype");
+                }
+                writer.write(".");
+                writer.write(declarationNameToString(member.name));
+                write(" = ");
+                emitStart(member);
+                if (member.extAttributes & ExtAttributes.ExtGetter) {
+                    write("function() ");
+                    write("{ return this.");
+                    write(member.linkedFieldName);
+                    write("; } ");
+                } else {
+                    write("function(value) ");
+                    write("{ this.");
+                    write(member.linkedFieldName);
+                    write(" = value; } ");
+                }
+                emitEnd(member);
+                emitEnd(member);
+                write(";");
+                emitTrailingComments(member);
+            }
+            //ExtJs Emit Support
 
             function emitInterfaceDeclaration(node: InterfaceDeclaration) {
                 emitPinnedOrTripleSlashComments(node);

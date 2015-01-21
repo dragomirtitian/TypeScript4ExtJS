@@ -156,7 +156,9 @@ module ts {
     // Computed property names will just be emitted as "[<expr>]", where <expr> is the source
     // text of the expression in the computed property.
     export function declarationNameToString(name: DeclarationName) {
-        return getFullWidth(name) === 0 ? "(Missing)" : getTextOfNode(name);
+        return getFullWidth(name) === 0 ? "(Missing)" :
+            name.flags & NodeFlags.FakeNode ? (<Identifier>name).text :
+            getTextOfNode(name);
     }
 
     export function createDiagnosticForNode(node: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): Diagnostic {
@@ -247,7 +249,7 @@ module ts {
         function isJsDocComment(comment: CommentRange) {
             // True if the comment starts with '/**' but not if it is '/**/'
             return sourceFileOfNode.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk &&
-                sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.asterisk &&
+                (sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.asterisk || sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.at) &&
                 sourceFileOfNode.text.charCodeAt(comment.pos + 3) !== CharacterCodes.slash;
         }
     }

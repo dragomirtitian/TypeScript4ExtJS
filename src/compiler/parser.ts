@@ -1587,6 +1587,7 @@ module ts {
                 // [Yield] nor [GeneratorParameter]
                 fillSignature(SyntaxKind.ColonToken, /*yieldAndGeneratorParameterContext:*/ false, /*requireCompleteParameterList:*/ false, method);
                 parseTypeMemberSemicolon();
+                parseExtAttributes(method);
                 return finishNode(method);
             }
             else {
@@ -1595,6 +1596,7 @@ module ts {
                 property.questionToken = questionToken;
                 property.type = parseTypeAnnotation();
                 parseTypeMemberSemicolon();
+                parseExtAttributes(property);
                 return finishNode(property);
             }
         }
@@ -3271,6 +3273,7 @@ module ts {
             node.name = parseIdentifier();
             fillSignature(SyntaxKind.ColonToken, /*yieldAndGeneratorParameterContext:*/ !!node.asteriskToken, /*requireCompleteParameterList:*/ false, node);
             node.body = parseFunctionBlockOrSemicolon(!!node.asteriskToken);
+            parseExtAttributes(node);
             return finishNode(node);
         }
 
@@ -3312,6 +3315,7 @@ module ts {
                 property.type = parseTypeAnnotation();
                 property.initializer = allowInAnd(parseNonParameterInitializer);
                 parseSemicolon();
+                parseExtAttributes(property);
                 return finishNode(property);
             }
         }
@@ -3455,8 +3459,183 @@ module ts {
             else {
                 node.members = createMissingList<ClassElement>();
             }
+            parseExtAttributes(node);
             return finishNode(node);
         }
+        //ExtJs Parsing
+
+        function createFakeIdentifier(text: string, range: TextRange) {
+            var id = <Identifier>new (nodeConstructors[SyntaxKind.Identifier] || (nodeConstructors[SyntaxKind.Identifier] = objectAllocator.getNodeConstructor(SyntaxKind.Identifier)))();
+            id.text = text;
+            id.flags = NodeFlags.FakeNode;
+            id.pos = range.pos;
+            id.end = range.end;
+            return id;
+        }
+
+        function createFakeNode(kind: SyntaxKind, range: TextRange): Node {
+            var node = new (nodeConstructors[kind] || (nodeConstructors[kind] = objectAllocator.getNodeConstructor(kind)))();
+            node.pos = range.pos;
+            node.end = range.end;
+            node.flags = NodeFlags.FakeNode;
+            return node;
+        }
+
+        function parseConfigInterface<T extends Declaration>(classDeclaration: ClassDeclaration): InterfaceDeclaration {
+
+            function declarationNameToString(name: DeclarationName) {
+                return (<Identifier>name).text;
+            }
+
+            var node = <InterfaceDeclaration>createFakeNode(SyntaxKind.InterfaceDeclaration, classDeclaration);
+            node.name = createFakeIdentifier("I" + declarationNameToString(classDeclaration.name), classDeclaration.name);
+            node.flags |= classDeclaration.flags;
+
+            var classMembers = classDeclaration.members;
+
+            function createAmbientProperty(prop: PropertyDeclaration) {
+                function createGetter(prop: PropertyDeclaration, propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, prop);
+                    if (prop.type) {
+                        scanner.setTextPos(prop.type.pos);
+                        nextToken();
+                        methodDeclaration.type = parseType();
+                    }
+                    methodDeclaration.name = createFakeIdentifier("get" + propperName, prop.name);
+                    methodDeclaration.linkedFieldName = declarationNameToString(prop.name);
+                    methodDeclaration.parameters = <NodeArray<ParameterDeclaration>>[];
+                    methodDeclaration.flags |= NodeFlags.Ambient;
+                    methodDeclaration.extAttributes = ExtAttributes.ExtGetter | attrs;
+
+                    return methodDeclaration;
+                }
+
+                function createSetter(prop: PropertyDeclaration, propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, prop);
+
+                    methodDeclaration.type = <TypeNode>createFakeNode(SyntaxKind.VoidKeyword, prop.name);
+                    methodDeclaration.name = createFakeIdentifier("set" + propperName, prop.name)
+                    methodDeclaration.linkedFieldName = declarationNameToString(prop.name);
+                    methodDeclaration.parameters = <NodeArray<ParameterDeclaration>>[];
+                    methodDeclaration.extAttributes = ExtAttributes.ExtSetter | attrs;
+                    methodDeclaration.flags |= NodeFlags.Ambient;
+
+                    var parameter = <ParameterDeclaration>createFakeNode(SyntaxKind.Parameter, prop.name);
+                    if (prop.type) {
+                        scanner.setTextPos(prop.type.pos);
+                        nextToken();
+                        parameter.type = parseType();
+                    }
+
+                    parameter.name = createFakeIdentifier("value", prop.name);
+                    methodDeclaration.parameters.push(parameter);
+
+                    return methodDeclaration;
+                }
+
+                var name = declarationNameToString(prop.name);
+                var propperName = name.substr(0, 1).toUpperCase() + name.substr(1);
+
+                classMembers.push(createGetter(prop, propperName, prop.extAttributes));
+                classMembers.push(createSetter(prop, propperName, prop.extAttributes));
+            }
+
+            function createAmbientVmProperty(m: PropertyDeclaration) {
+                createAmbientProperty(m);
+            }
+
+            function hasBaseType(heritageClauses: NodeArray<HeritageClause>) : boolean{
+                if (!heritageClauses) return false;
+                var firstClause = heritageClauses[0];
+                if (!firstClause) return false;
+
+                return firstClause.types.length != 0;
+            }
+
+            var members = lookAhead(() => {
+                var members = <NodeArray<Declaration>>[];
+
+                if (hasBaseType(classDeclaration.heritageClauses)) {
+                    scanner.setTextPos(classDeclaration.heritageClauses.pos);
+                    nextToken();
+                    var heritageClauses = parseHeritageClausesWorker();
+                    heritageClauses.length = 1;
+                    heritageClauses[0].types.length = 1;
+                    heritageClauses[0].token = SyntaxKind.ExtendsKeyword;
+
+                    var baseType = heritageClauses[0].types[0];
+                    
+                    baseType.typeName.flags |= NodeFlags.FakeNode;
+                    node.heritageClauses = heritageClauses;
+
+                    var typeName = baseType.typeName;
+                    while (typeName.kind == SyntaxKind.QualifiedName) typeName = (<QualifiedName>typeName).right;
+
+                    (<Identifier>typeName).text = "I" + (<Identifier>typeName).text;
+                    typeName.flags |= NodeFlags.FakeNode;
+                }
+
+                if (classDeclaration.typeParameters) {
+                    scanner.setTextPos(classDeclaration.typeParameters.pos - 1);
+                    nextToken();
+                    node.typeParameters = parseTypeParameters();
+                }
+
+                forEach(classMembers,(m: PropertyDeclaration) => {
+                    var attrs = m.extAttributes;
+                    if (!attrs) return
+                    if (attrs & ExtAttributes.Config) {
+                        scanner.setTextPos(m.pos);
+                        nextToken();
+                        var configMember = <PropertyDeclaration>parseClassElement();
+                        if (!(configMember.flags & (NodeFlags.Protected | NodeFlags.Private))) {
+                            configMember.questionToken = createNode(SyntaxKind.QuestionToken, configMember.pos);
+                            members.push(configMember);
+                        }
+                    }
+
+                    if (attrs & ExtAttributes.ExtField) {
+                        createAmbientVmProperty(m);
+                    }
+
+                    else if (attrs & ExtAttributes.Prop) {
+                        createAmbientProperty(m);
+                    }
+                });
+                return members;
+            });
+
+
+            members.pos = classMembers.pos;
+            members.end = classMembers.end;
+
+            node.members = members;
+
+            return node;
+        }
+
+        function parseExtAttributes(node: Declaration) {
+            var comments = getLeadingCommentRangesOfNode(node, sourceFile);
+            var text = sourceFile.text;
+            forEach(comments, comment=> {
+                if (text.charCodeAt(comment.pos + 0) !== CharacterCodes.slash ||
+                    text.charCodeAt(comment.pos + 1) !== CharacterCodes.asterisk ||
+                    text.charCodeAt(comment.pos + 2) !== CharacterCodes.at) return;
+
+                node.extAttributes |= <number>(<any>ExtAtributesCaseInsensitive)[text.substring(comment.pos + 3, comment.end - 2).toLowerCase()];
+            });
+        }
+
+        function createModuleExtraItems(statements: NodeArray<ModuleElement>) {
+            for (var i = 0, n = statements.length; i < n; i++) {
+                var declaration = <Declaration><any>statements[i];
+                if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
+                    statements.push(parseConfigInterface(<ClassDeclaration>declaration));
+                }
+            }
+        }
+
+        //End ExtJs
 
         function parseHeritageClauses(isClassHeritageClause: boolean): NodeArray<HeritageClause> {
             // ClassTail[Yield,GeneratorParameter] : See 14.5
@@ -3504,6 +3683,7 @@ module ts {
             node.typeParameters = parseTypeParameters();
             node.heritageClauses = parseHeritageClauses(/*isClassHeritageClause:*/ false);
             node.members = parseObjectTypeMembers();
+            parseExtAttributes(node);
             return finishNode(node);
         }
 
@@ -3548,6 +3728,7 @@ module ts {
             var node = <ModuleBlock>createNode(SyntaxKind.ModuleBlock, scanner.getStartPos());
             if (parseExpected(SyntaxKind.OpenBraceToken)) {
                 node.statements = parseList(ParsingContext.ModuleElements, /*checkForStrictMode*/false, parseModuleElement);
+                createModuleExtraItems(node.statements);
                 parseExpected(SyntaxKind.CloseBraceToken);
             }
             else {
@@ -3865,6 +4046,7 @@ module ts {
         nextToken();
 
         sourceFile.statements = parseList(ParsingContext.SourceElements, /*checkForStrictMode*/ true, parseSourceElement);
+        createModuleExtraItems(sourceFile.statements);
         Debug.assert(token === SyntaxKind.EndOfFileToken);
         sourceFile.endOfFileToken = parseTokenNode();
 
