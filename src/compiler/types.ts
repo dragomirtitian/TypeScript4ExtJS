@@ -739,7 +739,8 @@ module ts {
         getConstantValue(node: PropertyAccess): number;
 
         //Extensions for ExtJs
-        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter);
+        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter) : void;
+        writeQualifiedResolvedTypeAtLocation(location: Node, writer: SymbolWriter): void;
     }
 
     export enum SymbolFlags {

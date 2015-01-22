@@ -1923,6 +1923,8 @@ module ts {
 
             function emitNewExpression(node: NewExpression) {
                 if (resolver.getNodeCheckFlags(node) & NodeCheckFlags.ExtNew) {
+                    emitExtNewExpression(node);
+                    return;
                 }
 
                 write("new ");
@@ -2696,6 +2698,7 @@ module ts {
                 }
             }
 
+            //Ext Js Emit Support
             function emitExtClassDeclaration(node: ClassDeclaration) {
 
                 emitLeadingComments(node);
@@ -2930,6 +2933,19 @@ module ts {
                     }
                 }
             }
+
+            function emitExtNewExpression(node: NewExpression) {
+                write("Ext.create('");
+                resolver.writeQualifiedResolvedTypeAtLocation(node.func, writer);
+                write("'");
+                if (node.arguments && node.arguments.length) {
+                    write(",");
+                    emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                }
+
+                write(")");
+            }
+            //ExtJs Emit Support
 
             function emitInterfaceDeclaration(node: InterfaceDeclaration) {
                 emitPinnedOrTripleSlashComments(node);

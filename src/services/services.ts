@@ -222,6 +222,7 @@ module ts {
     }
 
     class SymbolObject implements Symbol {
+        extAttributes: ExtAttributes;  // ExtJs Specific flags
         flags: SymbolFlags;
         name: string;
         declarations: Declaration[];

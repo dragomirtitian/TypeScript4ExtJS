@@ -7700,19 +7700,28 @@ module ts {
             writeType(getReturnTypeOfSignature(signature), writer, enclosingDeclaration, flags);
         }
 
-        function writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter) {
 
-            function writeQualifiedSymbol(symbol: Symbol, writer: SymbolWriter) {
-                if (symbol.parent) {
-                    writeQualifiedSymbol(symbol.parent, writer);
-                    writer.writeKind(".", SymbolDisplayPartKind.punctuation);
-                }
-                writer.writeSymbol(symbol.name, symbol);
+        function writeQualifiedSymbol(symbol: Symbol, writer: SymbolWriter) {
+            if (symbol.parent) {
+                writeQualifiedSymbol(symbol.parent, writer);
+                writer.writeKind(".", SymbolDisplayPartKind.punctuation);
             }
+            writer.writeSymbol(symbol.name, symbol);
+        }
+
+        function writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter): void {
+
             // Get type of the symbol if this is the valid symbol otherwise get type at location
             var symbol = getSymbolOfNode(location);
             var type = symbol && !(symbol.flags & SymbolFlags.TypeLiteral) ? getTypeOfSymbol(symbol) : getTypeFromTypeNode(location);
             writeQualifiedSymbol(type.symbol, writer);
+        }
+
+        function writeQualifiedResolvedTypeAtLocation(location: Node, writer: SymbolWriter): void {
+
+            // Get type of the symbol if this is the valid symbol otherwise get type at location
+            var symbol = getNodeLinks(location).resolvedSymbol;
+            writeQualifiedSymbol(symbol, writer);
         }
 
         function createResolver(): EmitResolver {
@@ -7734,6 +7743,7 @@ module ts {
                 isImportDeclarationEntityNameReferenceDeclarationVisible: isImportDeclarationEntityNameReferenceDeclarationVisible,
                 getConstantValue: getConstantValue,
                 writeQualifiedTypeAtLocation: writeQualifiedTypeAtLocation,
+                writeQualifiedResolvedTypeAtLocation: writeQualifiedResolvedTypeAtLocation,
             }
         }
 

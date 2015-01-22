@@ -64,7 +64,9 @@ module ts {
 
     // Return display name of an identifier
     export function identifierToString(identifier: Identifier) {
-        return identifier.kind === SyntaxKind.Missing ? "(Missing)" : identifier.text;
+        return identifier.kind === SyntaxKind.Missing ? "(Missing)" :
+            identifier.flags & NodeFlags.Ambient ? identifier.text :
+            getTextOfNode(identifier);
     }
 
     export function createDiagnosticForNode(node: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any): Diagnostic {
@@ -3626,6 +3628,7 @@ module ts {
         function createFakeIdentifier(text: string) {
             var id = <Identifier>new (nodeConstructors[SyntaxKind.Identifier] || (nodeConstructors[SyntaxKind.Identifier] = objectAllocator.getNodeConstructor(SyntaxKind.Identifier)))();
             id.text = text;
+            id.flags = NodeFlags.Ambient;
             id.pos = 0;
             id.end = 0;
             return id;
@@ -3749,7 +3752,7 @@ module ts {
                     text.charCodeAt(comment.pos + 1) !== CharacterCodes.asterisk ||
                     text.charCodeAt(comment.pos + 2) !== CharacterCodes.at) return;
 
-                node.extAttributes |= ExtAtributesCaseInsensitive[text.substring(comment.pos + 3, comment.end - 2).toLowerCase()];
+                node.extAttributes |= <number>(<any>ExtAtributesCaseInsensitive)[text.substring(comment.pos + 3, comment.end - 2).toLowerCase()];
             });
         }
         //End ExtJs
