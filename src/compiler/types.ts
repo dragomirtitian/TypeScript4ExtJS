@@ -739,8 +739,9 @@ module ts {
         getConstantValue(node: PropertyAccess): number;
 
         //Extensions for ExtJs
-        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter) : void;
+        writeQualifiedTypeAtLocation(location: Node, writer: SymbolWriter): void;
         writeQualifiedResolvedTypeAtLocation(location: Node, writer: SymbolWriter): void;
+        writeSymbolTypeParameters(location: Node, handler: (t: Type, w: (t: Type, writer: SymbolWriter) => void) => void): void;
     }
 
     export enum SymbolFlags {
@@ -855,7 +856,8 @@ module ts {
         EnumValuesComputed = 0x00000080,
 
         //Ext Flags
-        ExtNew = 0x00000100
+        EmitExtJs = 0x00000100,
+        EmitTypeParameterNames = 0x00000200
     }
 
     export interface NodeLinks {

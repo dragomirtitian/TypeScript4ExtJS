@@ -4631,7 +4631,7 @@ module ts {
                 return resolveErrorCall(node);
             }
             if (expressionType.flags & TypeFlags.ExtJsClass) {
-                getNodeLinks(node).flags |= NodeCheckFlags.ExtNew;
+                getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
             }
 
             // TS 1.0 spec: 4.11
@@ -4703,6 +4703,9 @@ module ts {
         function checkCallExpression(node: CallExpression): Type {
             var signature = getResolvedSignature(node);
             if (node.func.kind === SyntaxKind.SuperKeyword) {
+                if (signature.resolvedReturnType.flags & TypeFlags.ExtJsClass) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
+                }
                 return voidType;
             }
             if (node.kind === SyntaxKind.NewExpression) {
@@ -4713,6 +4716,19 @@ module ts {
                         error(node, Diagnostics.new_expression_whose_target_lacks_a_construct_signature_implicitly_has_an_any_type);
                     }
                     return anyType;
+                }
+            }
+
+            if (signature.declaration && signature.declaration.symbol) {
+                var funcSymbol = signature.declaration.symbol;
+                if (funcSymbol.extAttributes & ExtAttributes.InjectTypeNames) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitTypeParameterNames;
+                }
+                if (node.func.kind === SyntaxKind.PropertyAccess
+                    && (<PropertyAccess>node.func).left.kind === SyntaxKind.SuperKeyword
+                    && funcSymbol.parent
+                    && funcSymbol.parent.extAttributes & ExtAttributes.ExtJsClass) {
+                    getNodeLinks(node).flags |= NodeCheckFlags.EmitExtJs;
                 }
             }
             return getReturnTypeOfSignature(signature);
@@ -7702,8 +7718,16 @@ module ts {
 
 
         function writeQualifiedSymbol(symbol: Symbol, writer: SymbolWriter) {
-            if (symbol.parent) {
-                writeQualifiedSymbol(symbol.parent, writer);
+            var parent = symbol.parent;
+            if (!parent) {
+                var decl = symbol.declarations[0];
+                if (decl && decl.parent && decl.parent.parent) {
+                    parent = decl.parent.parent.symbol;
+                }
+            }
+
+            if (parent) {
+                writeQualifiedSymbol(parent, writer);
                 writer.writeKind(".", SymbolDisplayPartKind.punctuation);
             }
             writer.writeSymbol(symbol.name, symbol);
@@ -7721,7 +7745,28 @@ module ts {
 
             // Get type of the symbol if this is the valid symbol otherwise get type at location
             var symbol = getNodeLinks(location).resolvedSymbol;
+            symbol = symbol.exportSymbol || symbol;
             writeQualifiedSymbol(symbol, writer);
+        }
+
+        function writeSymbolTypeParameters(location: Node, handler: (t: Type, w: (t: Type, writer: SymbolWriter) => void) => void): void {
+            var signature = getNodeLinks(location).resolvedSignature;
+            if (signature == null) return;
+
+            var originalTarget = signature.target;
+            Debug.assert(originalTarget != null);
+
+
+            var typeParameters = originalTarget.typeParameters;
+            for (var i = 0, n = typeParameters.length; i < n; i++) {
+                var type = signature.mapper(typeParameters[i]);
+
+                if (type.symbol) {
+                    handler(type, (t, w) => writeQualifiedSymbol(t.symbol, w));
+                } else {
+                    handler(type, writeType);
+                }
+            }
         }
 
         function createResolver(): EmitResolver {
@@ -7744,6 +7789,7 @@ module ts {
                 getConstantValue: getConstantValue,
                 writeQualifiedTypeAtLocation: writeQualifiedTypeAtLocation,
                 writeQualifiedResolvedTypeAtLocation: writeQualifiedResolvedTypeAtLocation,
+                writeSymbolTypeParameters: writeSymbolTypeParameters
             }
         }
 

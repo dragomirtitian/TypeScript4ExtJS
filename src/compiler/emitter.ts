@@ -1897,6 +1897,13 @@ module ts {
 
             function emitCallExpression(node: CallExpression) {
                 var superCall = false;
+                var flags = resolver.getNodeCheckFlags(node);
+
+                if (flags & NodeCheckFlags.EmitExtJs) {
+                    emitExtJsSuperCallExpression(node);
+                    return;
+                }
+
                 if (node.func.kind === SyntaxKind.SuperKeyword) {
                     write("_super");
                     superCall = true;
@@ -1912,17 +1919,24 @@ module ts {
                         write(", ");
                         emitCommaList(node.arguments, /*includeTrailingComma*/ false);
                     }
+
+                    if (flags & NodeCheckFlags.EmitTypeParameterNames) {
+                        emitTypeParameters(node);
+                    }
                     write(")");
                 }
                 else {
                     write("(");
                     emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                    if (flags & NodeCheckFlags.EmitTypeParameterNames) {
+                        emitTypeParameters(node);
+                    }
                     write(")");
                 }
             }
 
             function emitNewExpression(node: NewExpression) {
-                if (resolver.getNodeCheckFlags(node) & NodeCheckFlags.ExtNew) {
+                if (resolver.getNodeCheckFlags(node) & NodeCheckFlags.EmitExtJs) {
                     emitExtNewExpression(node);
                     return;
                 }
@@ -2945,6 +2959,24 @@ module ts {
 
                 write(")");
             }
+
+            function emitExtJsSuperCallExpression(node: CallExpression) {
+
+                write("this.callParent([");
+                emitCommaList(node.arguments, /*includeTrailingComma*/ false);
+                write("])");
+            }
+            function emitTypeParameters(node: CallExpression) {
+                
+                var emitComma = node.arguments.length != 0;
+                resolver.writeSymbolTypeParameters(node, (t, w) => {
+                    if (emitComma) writer.write(",");
+                    writer.write("'");
+                    w(t, writer);
+                    writer.write("'");
+                });
+            }
+
             //ExtJs Emit Support
 
             function emitInterfaceDeclaration(node: InterfaceDeclaration) {
