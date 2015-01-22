@@ -1174,17 +1174,6 @@ module ts {
                     var element = parseElement();
                     result.push(element);
 
-                    switch (kind) {
-                        case ParsingContext.ClassMembers:
-                            break;
-                        case ParsingContext.ModuleElements:
-                            var declaration = <Declaration>element;
-                            if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
-                                result.push(<T><any>parseConfigInterface(<ClassDeclaration><any>element));
-                            }
-                            break;
-                    }
-
                     // test elements only if we are not already in strict mode
                     if (!isInStrictMode && checkForStrictMode) {
                         if (isPrologueDirective(element)) {
@@ -3762,6 +3751,12 @@ module ts {
             if (parseExpected(SyntaxKind.OpenBraceToken)) {
                 node.statements = parseList(ParsingContext.ModuleElements, /*checkForStrictMode*/ false, parseModuleElement);
                 parseExpected(SyntaxKind.CloseBraceToken);
+                for (var i = 0, n = node.statements.length; i < n; i++) {
+                    var declaration = <Declaration>node.statements[i];
+                    if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
+                        node.statements.push(parseConfigInterface(<ClassDeclaration>declaration));
+                    }
+                }
             }
             else {
                 node.statements = createMissingList<Statement>();
