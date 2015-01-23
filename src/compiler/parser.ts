@@ -3638,7 +3638,6 @@ module ts {
             node.name = createFakeIdentifier("I" + classDeclaration.name.text, classDeclaration.name);
             node.flags |= classDeclaration.flags;
 
-            var membersToRemove: { [key: string]: boolean };
             var classMembers = classDeclaration.members;
 
             function createAmbientProperty(prop: PropertyDeclaration) {
@@ -3650,6 +3649,7 @@ module ts {
                         methodDeclaration.type = parseType();
                     }
                     methodDeclaration.name = createFakeIdentifier("get" + propperName, prop.name);
+                    methodDeclaration.linkedFieldName = prop.name.text;
                     methodDeclaration.parameters = <NodeArray<Node>>[];
                     methodDeclaration.flags |= NodeFlags.Ambient;
                     methodDeclaration.extAttributes = ExtAttributes.ExtGetter | attrs;
@@ -3662,6 +3662,7 @@ module ts {
 
                     methodDeclaration.type = createFakeNode(SyntaxKind.VoidKeyword, prop.name);
                     methodDeclaration.name = createFakeIdentifier("set" + propperName, prop.name)
+                    methodDeclaration.linkedFieldName = prop.name.text;
                     methodDeclaration.parameters = <NodeArray<Node>>[];
                     methodDeclaration.extAttributes = ExtAttributes.ExtSetter | attrs;
                     methodDeclaration.flags |= NodeFlags.Ambient;
@@ -3688,8 +3689,6 @@ module ts {
 
             function createAmbientVmProperty(m: PropertyDeclaration) {
                 createAmbientProperty(m);
-                if (membersToRemove == undefined) membersToRemove = {};
-                membersToRemove[m.name.text] = true;
             }
 
             var members = lookAhead(() => {
@@ -3707,6 +3706,7 @@ module ts {
                     while (typeName.kind == SyntaxKind.QualifiedName) typeName = (<QualifiedName>typeName).right;
 
                     (<Identifier>typeName).text = "I" + (<Identifier>typeName).text;
+                    typeName.flags |= NodeFlags.FakeNode;
                 }
 
                 if (classDeclaration.typeParameters) {
@@ -3731,6 +3731,7 @@ module ts {
                     if (attrs & ExtAttributes.ExtField) {
                         createAmbientVmProperty(m);
                     }
+
                     else if (attrs & ExtAttributes.Prop) {
                         createAmbientProperty(m);
                     }
@@ -3743,18 +3744,6 @@ module ts {
             members.end = classMembers.end;
 
             node.members = members;
-
-            if (membersToRemove) {
-                for (var ri = 0, wi = 0, n = classMembers.length; ri < n; ri++, wi++) {
-                    var member = <Declaration>classMembers[ri];
-                    if (member.name && membersToRemove[member.name.text]) {
-                        wi--
-                    } else if (wi != ri) {
-                        classMembers[wi] = member;
-                    }
-                }
-                classMembers.length = ri - 1;
-            }
 
             return node;
         }

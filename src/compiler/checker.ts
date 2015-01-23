@@ -7755,16 +7755,21 @@ module ts {
 
             var originalTarget = signature.target;
             Debug.assert(originalTarget != null);
-
+            function writeTypeNoNewLine(t: Type, writer: SymbolWriter) {
+                var oldWriteLine = writer.writeLine;
+                writer.writeLine = () => { }
+                writeType(t, writer, <Node>{}, TypeFormatFlags.WriteFullTypeName);
+                writer.writeLine = oldWriteLine;
+            }
 
             var typeParameters = originalTarget.typeParameters;
             for (var i = 0, n = typeParameters.length; i < n; i++) {
                 var type = signature.mapper(typeParameters[i]);
 
                 if (type.symbol) {
-                    handler(type, (t, w) => writeQualifiedSymbol(t.symbol, w));
+                    handler(type, writeTypeNoNewLine);
                 } else {
-                    handler(type, writeType);
+                    handler(type, writeTypeNoNewLine);
                 }
             }
         }

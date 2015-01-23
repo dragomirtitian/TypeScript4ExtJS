@@ -310,7 +310,9 @@ module ts {
         body?: Node;  // Block or Expression
     }
 
-    export interface MethodDeclaration extends FunctionDeclaration { }
+    export interface MethodDeclaration extends FunctionDeclaration {
+        linkedFieldName?: string;
+    }
 
     export interface ConstructorDeclaration extends FunctionDeclaration { }
 

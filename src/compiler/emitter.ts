@@ -1116,6 +1116,8 @@ module ts {
         }
 
         function emitNode(node: Node) {
+            if (node.flags & NodeFlags.FakeNode) return;
+
             switch (node.kind) {
                 case SyntaxKind.Constructor:
                 case SyntaxKind.FunctionDeclaration:
@@ -2517,6 +2519,10 @@ module ts {
             function emitMemberFunctions(node: ClassDeclaration) {
                 forEach(node.members, member => {
                     if (member.kind === SyntaxKind.Method) {
+                        if (member.flags & NodeFlags.FakeNode) {
+                            return emitAutoProperty(node, <MethodDeclaration>member);
+                        }
+
                         if (!(<MethodDeclaration>member).body) {
                             return emitPinnedOrTripleSlashComments(member);
                         }
@@ -2797,7 +2803,7 @@ module ts {
                     emitStart(member);
                     write("function() ");
                     write("{ return this.get('");
-                    write(member.name.text);
+                    write(member.linkedFieldName);
                     write("'); } ");
                     emitEnd(member)
                 }
@@ -2808,7 +2814,7 @@ module ts {
                     emitStart(member);
                     write("function(value) ");
                     write("{ return this.set('");
-                    write(member.name.text);
+                    write(member.linkedFieldName);
                     write("', value); } ");
                     emitEnd(member)
                 }
@@ -2977,6 +2983,35 @@ module ts {
                 });
             }
 
+            function emitAutoProperty(node: ClassDeclaration, member: MethodDeclaration) {
+                writeLine();
+                emitLeadingComments(member);
+                emitStart(member);
+                emitStart((<MethodDeclaration>member).name);
+                emitNode(node.name);
+                if (!(member.flags & NodeFlags.Static)) {
+                    write(".prototype");
+                }
+                writer.write(".");
+                writer.write(member.name.text);
+                write(" = ");
+                emitStart(member);
+                if (member.extAttributes & ExtAttributes.ExtGetter) {
+                    write("function() ");
+                    write("{ return this.");
+                    write(member.linkedFieldName);
+                    write("; } ");
+                } else {
+                    write("function(value) ");
+                    write("{ this.");
+                    write(member.linkedFieldName);
+                    write(" = value; } ");
+                }
+                emitEnd(member);
+                emitEnd(member);
+                write(";");
+                emitTrailingComments(member);
+            }
             //ExtJs Emit Support
 
             function emitInterfaceDeclaration(node: InterfaceDeclaration) {
