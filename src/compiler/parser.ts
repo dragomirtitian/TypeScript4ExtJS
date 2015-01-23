@@ -65,7 +65,7 @@ module ts {
     // Return display name of an identifier
     export function identifierToString(identifier: Identifier) {
         return identifier.kind === SyntaxKind.Missing ? "(Missing)" :
-            identifier.flags & NodeFlags.Ambient ? identifier.text :
+            identifier.flags & NodeFlags.FakeNode ? identifier.text :
             getTextOfNode(identifier);
     }
 
@@ -156,7 +156,7 @@ module ts {
         function isJsDocComment(comment: CommentRange) {
             // True if the comment starts with '/**' but not if it is '/**/'
             return sourceFileOfNode.text.charCodeAt(comment.pos + 1) === CharacterCodes.asterisk &&
-                sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.asterisk &&
+                (sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.asterisk || sourceFileOfNode.text.charCodeAt(comment.pos + 2) === CharacterCodes.at) &&
                 sourceFileOfNode.text.charCodeAt(comment.pos + 3) !== CharacterCodes.slash;
         }
     }
@@ -1602,6 +1602,7 @@ module ts {
                 (<PropertyDeclaration>node).type = parseTypeAnnotation();
             }
             parseSemicolon();
+            parseExtAttributes(node);
             return finishNode(node);
         }
 
@@ -3195,7 +3196,7 @@ module ts {
                 if (inAmbientContext && property.initializer && errorCountBeforePropertyDeclaration === file.syntacticErrors.length) {
                     grammarErrorAtPos(initializerStart, initializerFirstTokenLength, Diagnostics.Initializers_are_not_allowed_in_ambient_contexts);
                 }
-                parseExtAttributes(property, file, scanner);
+                parseExtAttributes(property);
                 return finishNode(property);
             }
         }
@@ -3614,38 +3615,41 @@ module ts {
 
         //ExtJs Parsing
 
-        function createFakeIdentifier(text: string) {
+        function createFakeIdentifier(text: string, range: TextRange) {
             var id = <Identifier>new (nodeConstructors[SyntaxKind.Identifier] || (nodeConstructors[SyntaxKind.Identifier] = objectAllocator.getNodeConstructor(SyntaxKind.Identifier)))();
             id.text = text;
-            id.flags = NodeFlags.Ambient;
-            id.pos = 0;
-            id.end = 0;
+            id.flags = NodeFlags.FakeNode;
+            id.pos = range.pos;
+            id.end = range.end;
             return id;
         }
 
-        function createFakeNode(kind: SyntaxKind, pos?: number): Node {
+        function createFakeNode(kind: SyntaxKind, range: TextRange): Node {
             var node = new (nodeConstructors[kind] || (nodeConstructors[kind] = objectAllocator.getNodeConstructor(kind)))();
-            pos = pos || 0;
-            node.pos = pos;
-            node.end = pos;
+            node.pos = range.pos;
+            node.end = range.end;
+            node.flags = NodeFlags.FakeNode;
             return node;
         }
 
         function parseConfigInterface<T extends Declaration>(classDeclaration: ClassDeclaration): InterfaceDeclaration {
 
-            var node = <InterfaceDeclaration>createFakeNode(SyntaxKind.InterfaceDeclaration, classDeclaration.pos);
-            node.name = createFakeIdentifier("I" + classDeclaration.name.text);
-            node.flags = classDeclaration.flags;
+            var node = <InterfaceDeclaration>createFakeNode(SyntaxKind.InterfaceDeclaration, classDeclaration);
+            node.name = createFakeIdentifier("I" + classDeclaration.name.text, classDeclaration.name);
+            node.flags |= classDeclaration.flags;
+
             var membersToRemove: { [key: string]: boolean };
             var classMembers = classDeclaration.members;
 
-            function createAmbientProperty(m: PropertyDeclaration) {
-                function createGetter(propperName: string, attrs: ExtAttributes) {
-                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, m.pos);
-                    scanner.setTextPos(m.type.pos);
-                    nextToken();
-                    methodDeclaration.type = parseType();
-                    methodDeclaration.name = createFakeIdentifier("get" + propperName);
+            function createAmbientProperty(prop: PropertyDeclaration) {
+                function createGetter(prop: PropertyDeclaration, propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, prop);
+                    if (prop.type) {
+                        scanner.setTextPos(prop.type.pos);
+                        nextToken();
+                        methodDeclaration.type = parseType();
+                    }
+                    methodDeclaration.name = createFakeIdentifier("get" + propperName, prop.name);
                     methodDeclaration.parameters = <NodeArray<Node>>[];
                     methodDeclaration.flags |= NodeFlags.Ambient;
                     methodDeclaration.extAttributes = ExtAttributes.ExtGetter | attrs;
@@ -3653,31 +3657,33 @@ module ts {
                     return methodDeclaration;
                 }
 
-                function createSetter(propperName: string, attrs: ExtAttributes) {
-                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method);
+                function createSetter(prop: PropertyDeclaration, propperName: string, attrs: ExtAttributes) {
+                    var methodDeclaration = <MethodDeclaration>createFakeNode(SyntaxKind.Method, prop);
 
-                    methodDeclaration.type = createFakeNode(SyntaxKind.VoidKeyword);
-                    methodDeclaration.name = createFakeIdentifier("set" + propperName);
+                    methodDeclaration.type = createFakeNode(SyntaxKind.VoidKeyword, prop.name);
+                    methodDeclaration.name = createFakeIdentifier("set" + propperName, prop.name)
                     methodDeclaration.parameters = <NodeArray<Node>>[];
                     methodDeclaration.extAttributes = ExtAttributes.ExtSetter | attrs;
-
-                    var parameter = <ParameterDeclaration>createFakeNode(SyntaxKind.Parameter);
-                    scanner.setTextPos(m.type.pos);
-                    nextToken();
-                    parameter.type = parseType();
-                    parameter.name = createFakeIdentifier("value");
-                    methodDeclaration.parameters.push(parameter);
-
                     methodDeclaration.flags |= NodeFlags.Ambient;
+
+                    var parameter = <ParameterDeclaration>createFakeNode(SyntaxKind.Parameter, prop.name);
+                    if (prop.type) {
+                        scanner.setTextPos(prop.type.pos);
+                        nextToken();
+                        parameter.type = parseType();
+                    }
+
+                    parameter.name = createFakeIdentifier("value", prop.name);
+                    methodDeclaration.parameters.push(parameter);
 
                     return methodDeclaration;
                 }
 
-                var name = m.name.text;
+                var name = prop.name.text;
                 var propperName = name.substr(0, 1).toUpperCase() + name.substr(1);
 
-                classMembers.push(createGetter(propperName, m.extAttributes));
-                classMembers.push(createSetter(propperName, m.extAttributes));
+                classMembers.push(createGetter(prop, propperName, prop.extAttributes));
+                classMembers.push(createSetter(prop, propperName, prop.extAttributes));
             }
 
             function createAmbientVmProperty(m: PropertyDeclaration) {
@@ -3688,6 +3694,26 @@ module ts {
 
             var members = lookAhead(() => {
                 var members = <NodeArray<Node>>[];
+
+
+                if (classDeclaration.baseType) {
+                    scanner.setTextPos(classDeclaration.baseType.pos);
+                    nextToken();
+                    var baseType = parseTypeReference();
+                    baseType.typeName.flags |= NodeFlags.FakeNode;
+                    node.baseTypes = <NodeArray<TypeReferenceNode>>[baseType];
+
+                    var typeName = baseType.typeName;
+                    while (typeName.kind == SyntaxKind.QualifiedName) typeName = (<QualifiedName>typeName).right;
+
+                    (<Identifier>typeName).text = "I" + (<Identifier>typeName).text;
+                }
+
+                if (classDeclaration.typeParameters) {
+                    scanner.setTextPos(classDeclaration.typeParameters.pos - 1);
+                    nextToken();
+                    node.typeParameters = parseTypeParameters();
+                }
 
                 forEach(classMembers, (m: PropertyDeclaration) => {
                     var attrs = m.extAttributes;
@@ -3733,9 +3759,9 @@ module ts {
             return node;
         }
 
-        function parseExtAttributes(node: Declaration, sourceFileOfNode: SourceFile, scanner: Scanner) {
-            var comments = getLeadingCommentRangesOfNode(node, sourceFileOfNode);
-            var text = sourceFileOfNode.text;
+        function parseExtAttributes(node: Declaration) {
+            var comments = getLeadingCommentRangesOfNode(node, file);
+            var text = file.text;
             forEach(comments, comment=> {
                 if (text.charCodeAt(comment.pos + 0) !== CharacterCodes.slash ||
                     text.charCodeAt(comment.pos + 1) !== CharacterCodes.asterisk ||
@@ -3744,6 +3770,16 @@ module ts {
                 node.extAttributes |= <number>(<any>ExtAtributesCaseInsensitive)[text.substring(comment.pos + 3, comment.end - 2).toLowerCase()];
             });
         }
+
+        function createModuleExtraItems(statements: NodeArray<Statement>) {
+            for (var i = 0, n = statements.length; i < n; i++) {
+                var declaration = <Declaration>statements[i];
+                if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
+                    statements.push(parseConfigInterface(<ClassDeclaration>declaration));
+                }
+            }
+        }
+
         //End ExtJs
 
         function parseModuleBody(): Block {
@@ -3751,12 +3787,7 @@ module ts {
             if (parseExpected(SyntaxKind.OpenBraceToken)) {
                 node.statements = parseList(ParsingContext.ModuleElements, /*checkForStrictMode*/ false, parseModuleElement);
                 parseExpected(SyntaxKind.CloseBraceToken);
-                for (var i = 0, n = node.statements.length; i < n; i++) {
-                    var declaration = <Declaration>node.statements[i];
-                    if (declaration.extAttributes & ExtAttributes.ConfigInterface) {
-                        node.statements.push(parseConfigInterface(<ClassDeclaration>declaration));
-                    }
-                }
+                createModuleExtraItems(node.statements);
             }
             else {
                 node.statements = createMissingList<Statement>();
@@ -3914,7 +3945,7 @@ module ts {
                 default:
                     error(Diagnostics.Declaration_expected);
             }
-            parseExtAttributes(result, file, scanner);
+            parseExtAttributes(result);
             inAmbientContext = saveInAmbientContext;
             return result;
         }
@@ -4022,6 +4053,7 @@ module ts {
         file.referencedFiles = referenceComments.referencedFiles;
         file.amdDependencies = referenceComments.amdDependencies;
         file.statements = parseList(ParsingContext.SourceElements, /*checkForStrictMode*/ true, parseSourceElement);
+        createModuleExtraItems(file.statements);
         file.externalModuleIndicator = getExternalModuleIndicator();
         file.nodeCount = nodeCount;
         file.identifierCount = identifierCount;

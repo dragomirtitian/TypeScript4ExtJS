@@ -245,6 +245,7 @@ module ts {
         MultiLine        = 0x00000100,  // Multi-line array or object literal
         Synthetic        = 0x00000200,  // Synthetic node (for full fidelity)
         DeclarationFile  = 0x00000400,  // Node is a .d.ts file
+        FakeNode         = 0x00000800,  // Fake Node Inserted during parsing
 
         Modifier = Export | Ambient | Public | Private | Protected | Static,
         AccessibilityModifier = Public | Private | Protected
@@ -1277,7 +1278,7 @@ module ts {
         public static Config = "Config".toLowerCase();//Done
         public static Prop = "Prop".toLowerCase();//Done
         public static VmField = "vm-field".toLowerCase();//Done
-        public static ModelField = "model-prop".toLowerCase(); //Done
+        public static ModelField = "model-field".toLowerCase(); //Done
         public static InjectTypeNames = "@injectTypeNames".toLowerCase();
     }
 

@@ -744,7 +744,7 @@ module ts {
         }
 
         function emitInterfaceDeclaration(node: InterfaceDeclaration) {
-            if (resolver.isDeclarationVisible(node)) {
+            if (!(node.flags & NodeFlags.FakeNode) && resolver.isDeclarationVisible(node)) {
                 emitJsDocComments(node);
                 emitDeclarationFlags(node);
                 write("interface ");
@@ -2737,16 +2737,16 @@ module ts {
                 }
 
                 // Emit ext config block
-                emitConfigBlock("config", 0, NodeFlags.Static | NodeFlags.Ambient, ExtAttributes.Config, ExtAttributes.ExtField);
+                emitConfigBlock("config", 0, NodeFlags.Static | NodeFlags.FakeNode, ExtAttributes.Config, ExtAttributes.ExtField);
 
                 // Emit ext statics block 
-                emitConfigBlock("statics", NodeFlags.Static, NodeFlags.Ambient, 0, 0);
+                emitConfigBlock("statics", NodeFlags.Static, NodeFlags.FakeNode, 0, 0);
 
                 // Emit normal class mebers
-                emitConfigBlock(null, 0, NodeFlags.Static | NodeFlags.Ambient, 0, ExtAttributes.Config);
+                emitConfigBlock(null, 0, NodeFlags.Static | NodeFlags.FakeNode, 0, ExtAttributes.Config);
 
                 // Emit generated ext getter and setter 
-                emitConfigBlock(null, NodeFlags.Ambient, NodeFlags.Static, ExtAttributes.ExtGetter | ExtAttributes.ExtSetter | ExtAttributes.ExtField, ExtAttributes.Prop);
+                emitConfigBlock(null, NodeFlags.FakeNode, NodeFlags.Static, ExtAttributes.ExtGetter | ExtAttributes.ExtSetter | ExtAttributes.ExtField, ExtAttributes.Prop);
 
                 emitConstructorOfClass();
 
@@ -2768,7 +2768,7 @@ module ts {
                 function emitMemeber(member: Declaration) {
                     switch (member.kind) {
                         case SyntaxKind.Method:
-                            if (member.flags & NodeFlags.Ambient) {
+                            if (member.flags & NodeFlags.FakeNode) {
                                 if (member.extAttributes & ExtAttributes.ExtGetter) {
                                     emitMemberGetter(<MethodDeclaration>member);
                                 } else {
