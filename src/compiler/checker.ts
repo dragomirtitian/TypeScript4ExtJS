@@ -7758,7 +7758,7 @@ module ts {
             function writeTypeNoNewLine(t: Type, writer: SymbolWriter) {
                 var oldWriteLine = writer.writeLine;
                 writer.writeLine = () => { }
-                writeType(t, writer, <Node>{}, TypeFormatFlags.WriteFullTypeName);
+                writeType(t, writer, <Node>{}, TypeFormatFlags.None);
                 writer.writeLine = oldWriteLine;
             }
 
