@@ -3294,6 +3294,7 @@ module ts {
             method.questionToken = questionToken;
             fillSignature(SyntaxKind.ColonToken, /*yieldAndGeneratorParameterContext:*/ !!asteriskToken, /*requireCompleteParameterList:*/ false, method);
             method.body = requireBlock ? parseFunctionBlock(!!asteriskToken, /*ignoreMissingOpenBrace:*/ false) : parseFunctionBlockOrSemicolon(!!asteriskToken);
+            parseExtAttributes(method);
             return finishNode(method);
         }
 
