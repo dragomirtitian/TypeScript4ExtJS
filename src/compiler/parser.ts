@@ -3544,18 +3544,20 @@ module ts {
                 createAmbientProperty(m);
             }
 
-            function hasBaseType(heritageClauses: NodeArray<HeritageClause>) : boolean{
-                if (!heritageClauses) return false;
-                var firstClause = heritageClauses[0];
+            function hasBaseType(node: InterfaceDeclaration | ClassDeclaration): boolean{
+                if (!node.heritageClauses) return false;
+                var firstClause = node.heritageClauses[0];
                 if (!firstClause) return false;
 
+                if (node.kind == SyntaxKind.ClassDeclaration && firstClause.token != SyntaxKind.ExtendsKeyword) return false;
+                
                 return firstClause.types.length != 0;
             }
 
             var members = lookAhead(() => {
                 var members = <NodeArray<Declaration>>[];
 
-                if (hasBaseType(classDeclaration.heritageClauses)) {
+                if (hasBaseType(classDeclaration)) {
                     scanner.setTextPos(classDeclaration.heritageClauses.pos);
                     nextToken();
                     var heritageClauses = parseHeritageClausesWorker();
