@@ -5735,7 +5735,7 @@ module ts {
                         // in this case they should also use correct lexical this
                         captureLexicalThis(node.parent, container);
                     }
-
+                    returnType.usagePlugin && returnType.usagePlugin(node, returnType);
                     return returnType;
                 }
             }
