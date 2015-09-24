@@ -387,6 +387,11 @@ module ts {
         /* @internal */ locals?: SymbolTable; // Locals associated with node (initialized by binding)
         /* @internal */ nextContainer?: Node; // Next container in declaration order (initialized by binding)
         /* @internal */ localSymbol?: Symbol; // Local symbol declared by node (initialized by binding only for exported nodes)
+
+        /* plugins */
+        parserPlugin?: (nodes: NodeArray<Node>, parsedNode: Node) => void;
+        emitterPlugin?: (node: Node, context: IPluginEmitterContext) => boolean;
+        declarationEmitterExtension?: (node: Node, context: IPluginEmitterContext) => boolean;
     }
 
     export interface NodeArray<T> extends Array<T>, TextRange {
@@ -415,6 +420,7 @@ module ts {
     export interface Declaration extends Node {
         _declarationBrand: any;
         name?: DeclarationName;
+        usagePlugin?: (node: Node, typeOrSignature: Type | Signature) => void;
     }
 
     export interface ComputedPropertyName extends Node {
@@ -423,6 +429,7 @@ module ts {
 
     export interface Decorator extends Node {
         expression: LeftHandSideExpression;
+        plugin: (decorator: Decorator, node: Node) => void;
     }
 
     export interface TypeParameterDeclaration extends Declaration {
@@ -1283,6 +1290,7 @@ module ts {
         writeTypeOfDeclaration(declaration: AccessorDeclaration | VariableLikeDeclaration, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         writeReturnTypeOfSignatureDeclaration(signatureDeclaration: SignatureDeclaration, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
         writeTypeOfExpression(expr: Expression, enclosingDeclaration: Node, flags: TypeFormatFlags, writer: SymbolWriter): void;
+        getSymbolDisplayBuilder(): SymbolDisplayBuilder;
         isSymbolAccessible(symbol: Symbol, enclosingDeclaration: Node, meaning: SymbolFlags): SymbolAccessiblityResult;
         isEntityNameVisible(entityName: EntityName | Expression, enclosingDeclaration: Node): SymbolVisibilityResult;
         // Returns the constant value this property access resolves to, or 'undefined' for a non-constant
@@ -1386,6 +1394,7 @@ module ts {
         /* @internal */ exportSymbol?: Symbol;  // Exported symbol associated with this symbol
         valueDeclaration?: Declaration;         // First value declaration of the symbol
         /* @internal */ constEnumOnlyModule?: boolean; // True if module contains only const enums or other modules with only const enums
+        usagePlugin?: (node: Node, typeOrSignature: Type | Signature) => void;
     }
 
     /* @internal */ 
@@ -1483,6 +1492,7 @@ module ts {
         flags: TypeFlags;               // Flags
         /* @internal */ id: number;     // Unique ID
         symbol?: Symbol;                // Symbol associated with type (if any)
+        usagePlugin?: (node: Node, type: Type) => void;
     }
 
     /* @internal */ 
@@ -1588,6 +1598,8 @@ module ts {
         erasedSignatureCache?: Signature;   // Erased version of signature (deferred)
         /* @internal */
         isolatedSignatureType?: ObjectType; // A manufactured type that just contains the signature for purposes of signature comparison
+
+        usagePlugin?: (node: Node, signature: Signature) => void;
     }
 
     export const enum IndexKind {

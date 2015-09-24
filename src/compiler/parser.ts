@@ -1,5 +1,7 @@
 /// <reference path="scanner.ts"/>
 /// <reference path="utilities.ts"/>
+/// <reference path="../../../Plugins.ts" />
+/// <reference path="../../../ExtJsPlugins.ts" />
 
 module ts {
     let nodeConstructors = new Array<new () => Node>(SyntaxKind.Count);
@@ -350,6 +352,7 @@ module ts {
 
         let sourceFile: SourceFile;
         let syntaxCursor: IncrementalParser.SyntaxCursor;
+        let plugins: ts.IPluginsLookup = ts.defaultPlugins;
 
         let token: SyntaxKind;
         let sourceText: string;
@@ -857,7 +860,9 @@ module ts {
                 parseErrorBeforeNextFinishedNode = false;
                 node.parserContextFlags |= ParserContextFlags.ThisNodeHasError;
             }
-
+            if (node.decorators) {
+                node.decorators.forEach(d=> d.plugin && d.plugin(d, node));
+            }
             return node;
         }
 
@@ -1200,6 +1205,7 @@ module ts {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     let element = parseListElement(kind, parseElement);
                     result.push(element);
+                    if (element.parserPlugin) element.parserPlugin(result, element);
 
                     // test elements only if we are not already in strict mode
                     if (checkForStrictMode && !inStrictModeContext()) {
@@ -4139,6 +4145,13 @@ module ts {
 
                 let decorator = <Decorator>createNode(SyntaxKind.Decorator, decoratorStart);
                 decorator.expression = doInDecoratorContext(parseLeftHandSideExpressionOrHigher);
+
+                if (decorator.expression.kind == SyntaxKind.CallExpression) {
+                    var callTarget = (<CallExpression>decorator.expression).expression;
+                    var pluginName = getTextOfNodeFromSourceText(sourceText, callTarget);
+                    decorator.plugin = plugins[pluginName];
+                }
+
                 decorators.push(finishNode(decorator));
             }
             if (decorators) {

@@ -1504,6 +1504,7 @@ module ts {
         }
 
         function emitNode(node: Node) {
+            if (node.declarationEmitterExtension && node.declarationEmitterExtension(node, null)) return;
             switch (node.kind) {
                 case SyntaxKind.FunctionDeclaration:
                 case SyntaxKind.ModuleDeclaration:

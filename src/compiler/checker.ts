@@ -1036,6 +1036,7 @@ module ts {
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
             let type = <ObjectType>createType(kind);
             type.symbol = symbol;
+            type.usagePlugin = symbol && symbol.usagePlugin;
             return type;
         }
 
@@ -2762,6 +2763,7 @@ module ts {
             sig.minArgumentCount = minArgumentCount;
             sig.hasRestParameter = hasRestParameter;
             sig.hasStringLiterals = hasStringLiterals;
+            sig.usagePlugin = declaration && declaration.usagePlugin;
             return sig;
         }
 
@@ -7268,6 +7270,8 @@ module ts {
             checkGrammarTypeArguments(node, node.typeArguments) || checkGrammarArguments(node, node.arguments);
 
             let signature = getResolvedSignature(node);
+            signature.usagePlugin && signature.usagePlugin(node, signature);
+
             if (node.expression.kind === SyntaxKind.SuperKeyword) {
                 return voidType;
             }
@@ -8115,6 +8119,7 @@ module ts {
                 let uninstantiatedType = checkExpressionWorker(<Expression>node, contextualMapper);
                 type = instantiateTypeWithSingleGenericCallSignature(<Expression>node, uninstantiatedType, contextualMapper);
             }
+            type && type.usagePlugin && type.usagePlugin(node, type);
 
             if (isConstEnumObjectType(type)) {
                 // enum object type for const enums are only permitted in:
@@ -12064,6 +12069,7 @@ module ts {
                 serializeTypeOfNode,
                 serializeParameterTypesOfNode,
                 serializeReturnTypeOfNode,
+                getSymbolDisplayBuilder,
             };
         }
 

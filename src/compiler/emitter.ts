@@ -177,7 +177,17 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
-
+            let pluginContext: IPluginEmitterContext = {
+                emit,
+                emitLeadingComments,
+                emitEnd,
+                emitStart,
+                scopeEmitEnd,
+                scopeEmitStart,
+                emitTrailingComments,
+                writer,
+                emitResolver: resolver
+            }
             if (root) {
                 // Do not call emit directly. It does not set the currentSourceFile.
                 emitSourceFile(root);
@@ -5790,6 +5800,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
             }
 
             function emitJavaScriptWorker(node: Node, allowGeneratedIdentifiers: boolean = true) {
+                if (node.emitterPlugin && node.emitterPlugin(node, pluginContext)) return;
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
                     case SyntaxKind.Identifier:
