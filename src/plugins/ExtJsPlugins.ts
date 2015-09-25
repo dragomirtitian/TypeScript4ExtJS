@@ -18,18 +18,6 @@ module ts {
         }
     }
 
-    export interface IPluginEmitterContext {
-        emitResolver: EmitResolver;
-        writer: EmitTextWriter;
-        emitStart(node: Node): void;
-        emitEnd(node: Node): void;
-        emitLeadingComments(node: Node): void;
-        emitTrailingComments(node: Node): void;
-        scopeEmitStart(node: Node): void;
-        scopeEmitEnd(): void;
-        emit(node: Node): void;
-    }
-
     export const enum ExtAttributes {
         Config = 0x04,
         ExtGetter = 0x80,
@@ -48,9 +36,9 @@ module ts {
             flags: ts.NodeFlags.Ambient,
         };
     }
-    function copyAttributes(newNode: NodeArray<Node>, oldNode: NodeArray<Node>);
-    function copyAttributes(newNode: Node, oldNode: Node);
-    function copyAttributes(newNode: any, oldNode: any) {
+    function copyAttributes(newNode: NodeArray<Node>, oldNode: NodeArray<Node>): void;
+    function copyAttributes(newNode: Node, oldNode: Node): void;
+    function copyAttributes(newNode: any, oldNode: any) : void {
         newNode.flags = oldNode.flags;
         newNode.pos = oldNode.pos;
         newNode.end = oldNode.pos;
@@ -58,11 +46,11 @@ module ts {
     }
 
     function extractArguments(decorator: Decorator) {
-        function extarctValue(node: Node) {
+        function extarctValue(node: Node) : any{
             switch (node.kind) {
                 case SyntaxKind.ObjectLiteralExpression:
                     let objLiteral = <ObjectLiteralExpression>node;
-                    let obj = {};
+                    let obj: { [name: string]: any } = {};
                     for (let prop of objLiteral.properties) {
                         obj[(<Identifier>prop.name).text] = extarctValue((<PropertyAssignment>prop).initializer);
                     }
@@ -77,14 +65,15 @@ module ts {
             }
         }
         let call = <CallExpression>decorator.expression;
-        let argValues = [];
+        let argValues : any[] = [];
         for (let arg of call.arguments) {
             argValues.push(extarctValue(arg));
         }
         return argValues;
     }
 
-    function deepCloneNode<T>(node: T, parent: Node) {
+    function deepCloneNode<T>(node: T, parent: Node): T
+    function deepCloneNode(node: { [name: string]: any }, parent: Node) : any{
         let newNode: any = node instanceof Array ? [] : {};
         newNode.__proto__ = (<any>node).__proto__;
         for (let prop in node) {
@@ -129,10 +118,12 @@ module ts {
         }
         node.configInterfaceArgs = extractArguments(decorator)[0] || emptyArg;
         node.parserPlugin = parserPlugin;
+        decorator.declarationEmitterExtension = emitDecoratorAsIs;
     }
 
     function config(decorator: Decorator, node: PropertyDeclaration) {
         node.configArguments = extractArguments(decorator)[0];
+        decorator.declarationEmitterExtension = emitDecoratorAsIs;
         node.extAttributes |= ExtAttributes.Config;
     }
 
@@ -189,6 +180,7 @@ module ts {
         }
         node.propArgs = extractArguments(decorator)[0] || emptyArg;
         node.parserPlugin = parserExtension;
+        decorator.declarationEmitterExtension = emitDecoratorAsIs;
     }
     
     function createSymbolWriter(writer: EmitTextWriter): SymbolWriter{
@@ -210,7 +202,7 @@ module ts {
 
     function extJsClass(decorator: Decorator, node: ClassDeclaration) {
 
-        function emitExtJsSuperCallExpression(node: CallExpression, context: IPluginEmitterContext) {
+        function emitExtJsSuperCallExpression(node: CallExpression, context: PluginEmitterContext) {
             let write = context.writer.write
             let emit = context.emit;
             write("this.callParent([");
@@ -225,7 +217,7 @@ module ts {
             return true;
         }
 
-        function emitExtNewExpression(node: NewExpression, context: IPluginEmitterContext) {
+        function emitExtNewExpression(node: NewExpression, context: PluginEmitterContext) {
             let write = context.writer.write
             let emit = context.emit;
             write("Ext.create('");
@@ -257,7 +249,7 @@ module ts {
             }
         }
 
-        function emitterPlugin(node: Node, context: IPluginEmitterContext) {
+        function emitterPlugin(node: Node, context: PluginEmitterContext) {
             let writer = context.writer;
             let write = writer.write;
             let writeLine = context.writer.writeLine;
@@ -451,6 +443,7 @@ module ts {
          
         node.usagePlugin = usagePlugin;
         node.emitterPlugin = emitterPlugin;
+        decorator.declarationEmitterExtension = emitDecoratorAsIs;
     }
     
     function injectTypeNames(decorator: Decorator, node: SignatureDeclaration) {
@@ -461,7 +454,7 @@ module ts {
                 extraInfo[getNodeId(node)] = type;
             }
         }
-        function emitterPlugin(node: CallExpression, context: IPluginEmitterContext): boolean {
+        function emitterPlugin(node: CallExpression, context: PluginEmitterContext): boolean {
             if (node.expression.kind === SyntaxKind.SuperKeyword) return false;
             
             let write = context.writer.write
@@ -497,6 +490,13 @@ module ts {
             return true;
         }
         node.usagePlugin = usagePlugin;
+        decorator.declarationEmitterExtension = emitDecoratorAsIs;
+    }
+
+    function emitDecoratorAsIs(decorator: Decorator, context: PluginDeclarationEmitterContext) {
+        context.writer.writeTextOfNode(getSourceFileOfNode(decorator), decorator);
+        context.writer.writeLine();
+        return true;
     }
 
     ts.defaultPlugins["ConfigInterface"] = configInterface,

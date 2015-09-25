@@ -390,8 +390,8 @@ module ts {
 
         /* plugins */
         parserPlugin?: (nodes: NodeArray<Node>, parsedNode: Node) => void;
-        emitterPlugin?: (node: Node, context: IPluginEmitterContext) => boolean;
-        declarationEmitterExtension?: (node: Node, context: IPluginEmitterContext) => boolean;
+        emitterPlugin?: (node: Node, context: PluginEmitterContext) => boolean;
+        declarationEmitterExtension?: (node: Node, context: PluginDeclarationEmitterContext) => boolean;
     }
 
     export interface NodeArray<T> extends Array<T>, TextRange {

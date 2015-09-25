@@ -631,9 +631,11 @@ module ts {
     export function nodeCanBeDecorated(node: Node): boolean {
         // We allow plugin decorators on any kind of declaration
         var decorators = (<Declaration>node).decorators;
-        for (var i = 0, n = decorators.length; i < n; i++) {
-            if (!decorators[i].plugin) break;
-            if (i == n - 1) return true;
+        if (decorators) {
+            for (var i = 0, n = decorators.length; i < n; i++) {
+                if (!decorators[i].plugin) break;
+                if (i == n - 1) return true;
+            }
         }
 
         switch (node.kind) {

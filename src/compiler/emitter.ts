@@ -177,7 +177,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
             if (compilerOptions.sourceMap || compilerOptions.inlineSourceMap) {
                 initializeEmitterWithSourceMaps();
             }
-            let pluginContext: IPluginEmitterContext = {
+            let pluginContext: PluginEmitterContext = {
                 emit,
                 emitLeadingComments,
                 emitEnd,
