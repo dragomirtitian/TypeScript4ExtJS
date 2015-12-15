@@ -33,6 +33,7 @@ if (process.env.path !== undefined) {
 var compilerSources = [
     "core.ts",
     "sys.ts",
+    "plugins.ts",
     "types.ts",
     "scanner.ts",
     "parser.ts",

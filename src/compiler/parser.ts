@@ -1,7 +1,6 @@
 /// <reference path="scanner.ts"/>
 /// <reference path="utilities.ts"/>
-/// <reference path="../plugins/Plugins.ts" />
-/// <reference path="../plugins/ExtJsPlugins.ts" />
+/// <reference path="../plugins/extJsPlugins.ts" />
 
 module ts {
     let nodeConstructors = new Array<new () => Node>(SyntaxKind.Count);

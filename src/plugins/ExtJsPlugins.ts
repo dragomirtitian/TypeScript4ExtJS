@@ -1,4 +1,4 @@
-﻿/// <reference path="Plugins.ts" />
+﻿/// <reference path="../compiler/plugins.ts" />
 module ts {
     
     export interface ClassElement {
@@ -27,31 +27,34 @@ module ts {
     function createIdentifierFromName(name: ts.Identifier, prefix?: string): ts.Identifier {
         let text = name.text;
         let id = createIdentifier(prefix ? (prefix + text.substr(0, 1).toUpperCase() + text.substr(1)) : text);
-        copyAttributes(id, name);
         return id;
     }
     function createIdentifier(name: string): ts.Identifier {
-        return <ts.Identifier>{
-            text: name,
-            flags: ts.NodeFlags.Ambient,
-        };
+        let id = <Identifier>new (getNodeConstructor(SyntaxKind.Identifier))();
+        id.text = name;
+        return id;
     }
     function copyAttributes(newNode: NodeArray<Node>, oldNode: NodeArray<Node>): void;
     function copyAttributes(newNode: Node, oldNode: Node): void;
     function copyAttributes(newNode: any, oldNode: any) : void {
         newNode.flags = oldNode.flags;
-        newNode.pos = oldNode.pos;
-        newNode.end = oldNode.pos;
+        copyPosition(newNode, oldNode);
         newNode.parserContextFlags = oldNode.parserContextFlags;
+    }
+    function copyPosition<T extends { end: number; pos: number; }>(newNode: T, oldNode: { pos: number }): T {
+        newNode.end = newNode.pos = oldNode.pos;
+        return newNode;
     }
 
     function extractArguments(decorator: Decorator) {
-        function extarctValue(node: Node) : any{
+        function extarctValue(node: Node): any{
+            if (!node) return undefined;
             switch (node.kind) {
                 case SyntaxKind.ObjectLiteralExpression:
                     let objLiteral = <ObjectLiteralExpression>node;
                     let obj: { [name: string]: any } = {};
                     for (let prop of objLiteral.properties) {
+                        
                         obj[(<Identifier>prop.name).text] = extarctValue((<PropertyAssignment>prop).initializer);
                     }
                     return obj
@@ -72,18 +75,33 @@ module ts {
         return argValues;
     }
 
-    function deepCloneNode<T>(node: T, parent: Node): T
-    function deepCloneNode(node: { [name: string]: any }, parent: Node) : any{
-        let newNode: any = node instanceof Array ? [] : {};
-        newNode.__proto__ = (<any>node).__proto__;
+    function deepCloneNode<T>(node: T, parent: Node, pos: number): T
+    function deepCloneNode(node: { [name: string]: any }, parent: Node, pos: number): any{
+        let newNode: any;
+        let proto = Object.getPrototypeOf(parent);
+        let kind: SyntaxKind = node['kind'];
+        if (kind) {
+            newNode = new (getNodeConstructor(kind))();
+        }
+        else if (node instanceof Array) {
+            newNode = [];
+        }else if (proto.constructor) {
+            newNode = new (proto.constructor)();
+        } else {
+            newNode = {};
+        }
+        
         for (let prop in node) {
             if (!(<Object>node).hasOwnProperty(prop)) continue;
 
             if (prop === "parent") {
                 newNode.parent = parent;
             }
+            else if (prop == "pos" || prop == "end") {
+                newNode[prop] = pos;
+            }
             else if (node[prop] instanceof Object) {
-                newNode[prop] = deepCloneNode(node[prop], newNode);
+                newNode[prop] = deepCloneNode(node[prop], newNode, pos);
             }
             else {
                 newNode[prop] = node[prop];
@@ -99,15 +117,16 @@ module ts {
             let configInterface = <InterfaceDeclaration>new (getNodeConstructor(SyntaxKind.InterfaceDeclaration))();
             let arg: { prefix?: string; name?: string; } = classNode.configInterfaceArgs;
             let name: string = arg.name || ((arg.prefix || "I") + classNode.name.text);
-            configInterface.name = createIdentifier(name);
+            configInterface.name = copyPosition(createIdentifier(name), node);
             configInterface.declarationEmitterExtension = noEmmit;
             let members = configInterface.members = <NodeArray<Declaration>>[];
-            copyAttributes(configInterface, classNode);
-            copyAttributes(configInterface.members, classNode.members);
+            copyAttributes(configInterface, classNode)
+            copyPosition(members, classNode);
+
             for (let member of classNode.members) {
                 if (!(<PropertyDeclaration>member).configArguments) continue;
 
-                let prop = <PropertyDeclaration>deepCloneNode(member, configInterface);
+                let prop = <PropertyDeclaration>deepCloneNode(member, configInterface, configInterface.pos);
                 if (prop.configArguments.required !== true) {
                     prop.questionToken = new (getNodeConstructor(SyntaxKind.QuestionToken));
                 }
@@ -137,36 +156,39 @@ module ts {
 
     function createGetter(prop: PropertyDeclaration) {
         let methodDeclaration = <MethodDeclaration>new (getNodeConstructor(SyntaxKind.MethodDeclaration))();
+        copyAttributes(methodDeclaration, prop);
         if (prop.type) {
-            methodDeclaration.type = <TypeNode>deepCloneNode(prop.type, methodDeclaration);
+            methodDeclaration.type = <TypeNode>deepCloneNode(prop.type, methodDeclaration, methodDeclaration.pos);
         }
-        methodDeclaration.name = createIdentifierFromName(<Identifier>prop.name, "get");
-        methodDeclaration.parameters = <NodeArray<ParameterDeclaration>>[];
-        methodDeclaration.flags |= NodeFlags.Ambient;
+        methodDeclaration.name = copyPosition(createIdentifierFromName(<Identifier>prop.name, "get"), prop);
+        copyPosition(methodDeclaration, prop);
+        methodDeclaration.parameters = copyPosition(<NodeArray<ParameterDeclaration>>[], prop);
+        methodDeclaration.flags = prop.flags | NodeFlags.Ambient;
         methodDeclaration.extAttributes = ExtAttributes.ExtGetter;
         methodDeclaration.linkedFieldName = declarationNameToString(prop.name);
         methodDeclaration.declarationEmitterExtension = noEmmit;
-
         return methodDeclaration;
     }
 
     function createSetter(prop: PropertyDeclaration) {
         let methodDeclaration = <MethodDeclaration>new (getNodeConstructor(SyntaxKind.MethodDeclaration))();
 
-        methodDeclaration.type = <TypeNode>new (getNodeConstructor(SyntaxKind.VoidKeyword))();
-        methodDeclaration.name = createIdentifierFromName(<Identifier>prop.name, "set")
-        methodDeclaration.parameters = <NodeArray<ParameterDeclaration>>[];
+        copyAttributes(methodDeclaration, prop);
+        methodDeclaration.type = copyPosition(<TypeNode>new (getNodeConstructor(SyntaxKind.VoidKeyword))(), prop);
+        methodDeclaration.name = copyPosition(createIdentifierFromName(<Identifier>prop.name, "set"), prop);
+        methodDeclaration.parameters = copyPosition(<NodeArray<ParameterDeclaration>>[], prop);
         methodDeclaration.linkedFieldName = declarationNameToString(prop.name);
         methodDeclaration.flags |= NodeFlags.Ambient;
         methodDeclaration.declarationEmitterExtension = noEmmit;
         methodDeclaration.extAttributes = ExtAttributes.ExtSetter;
 
-        let parameter = <ParameterDeclaration>new (getNodeConstructor(SyntaxKind.Parameter))();
+        let parameter = copyPosition(< ParameterDeclaration > new (getNodeConstructor(SyntaxKind.Parameter))(), prop);
+        
         if (prop.type) {
-            parameter.type = deepCloneNode(prop.type, parameter);
+            parameter.type = deepCloneNode(prop.type, parameter, methodDeclaration.pos);
         }
 
-        parameter.name = createIdentifier("value");
+        parameter.name = copyPosition(createIdentifier("value"), prop);
         methodDeclaration.parameters.push(parameter);
         return methodDeclaration;
     }
