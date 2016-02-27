@@ -1,5 +1,6 @@
 /// <reference path="program.ts"/>
 /// <reference path="commandLineParser.ts"/>
+/// <reference path="../plugins/ExtJsPlugins.ts" />
 
 namespace ts {
     export interface SourceFile {

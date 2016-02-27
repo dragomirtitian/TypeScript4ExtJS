@@ -6863,7 +6863,7 @@ namespace ts {
              * False will mean that node is not classified and traverse routine should recurse into node contents.
              */
             function tryClassifyNode(node: Node): boolean {
-                if (nodeIsMissing(node)) {
+                if (nodeIsMissing(node) || nodeIsPluginSynthetic(node)) {
                     return true;
                 }
 
@@ -7009,7 +7009,7 @@ namespace ts {
             }
 
             function processElement(element: Node) {
-                if (!element) {
+                if (!element || nodeIsPluginSynthetic(element)) {
                     return;
                 }
 

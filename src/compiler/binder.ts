@@ -196,6 +196,10 @@ namespace ts {
                     symbol.valueDeclaration = node;
                 }
         }
+
+            if (node.usagePlugins) {
+                addPlugins(symbol, node.usagePlugins);
+            }
         }
 
         // Should not be called on a declaration with a computed property name,

@@ -203,6 +203,10 @@ namespace ts {
         return !nodeIsMissing(node);
     }
 
+    export function nodeIsPluginSynthetic(node: Node) {
+        return !!(node.flags & NodeFlags.PluginSynthetic);
+    }
+
     export function getTokenPosOfNode(node: Node, sourceFile?: SourceFile): number {
         // With nodes that have no width (i.e. 'Missing' nodes), we actually *don't*
         // want to skip trivia because this will launch us forward to the next token.
@@ -335,6 +339,9 @@ namespace ts {
     // Computed property names will just be emitted as "[<expr>]", where <expr> is the source
     // text of the expression in the computed property.
     export function declarationNameToString(name: DeclarationName) {
+        if (name.flags & NodeFlags.PluginSynthetic) {
+            return (<Identifier>name).text;
+        }
         return getFullWidth(name) === 0 ? "(Missing)" : getTextOfNode(name);
     }
 
@@ -913,6 +920,17 @@ namespace ts {
     }
 
     export function nodeCanBeDecorated(node: Node): boolean {
+
+        // We allow plugin decorators on any kind of declaration
+        // TO REVIEW !
+        let decorators = (<Declaration>node).decorators;
+        if (decorators) {
+            for (let i = 0, n = decorators.length; i < n; i++) {
+                if (!decorators[i].plugin) break;
+                if (i == n - 1) return true;
+            }
+        }
+
         switch (node.kind) {
             case SyntaxKind.ClassDeclaration:
                 // classes are valid targets

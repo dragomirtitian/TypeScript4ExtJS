@@ -515,6 +515,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             let sourceMap = compilerOptions.sourceMap || compilerOptions.inlineSourceMap ? createSourceMapWriter(host, writer) : getNullSourceMapWriter();
             let { setSourceFile, emitStart, emitEnd, emitPos } = sourceMap;
 
+            let pluginContext: PluginEmitterContext = {
+                emit,
+                emitLeadingComments,
+                emitEnd,
+                emitStart,
+                emitTrailingComments,
+                writer,
+                emitResolver: resolver
+            };
+
             let currentSourceFile: SourceFile;
             let currentText: string;
             let currentLineMap: number[];
@@ -4974,6 +4984,7 @@ const _super = (function (geti, seti) {
 
             function emitMemberFunctionsForES5AndLower(node: ClassLikeDeclaration) {
                 forEach(node.members, member => {
+                    if (member.emitterPlugin && member.emitterPlugin(member, pluginContext)) return;
                     if (member.kind === SyntaxKind.SemicolonClassElement) {
                         writeLine();
                         write(";");
@@ -5046,6 +5057,7 @@ const _super = (function (geti, seti) {
 
             function emitMemberFunctionsForES6AndHigher(node: ClassLikeDeclaration) {
                 for (const member of node.members) {
+                    if (member.emitterPlugin && member.emitterPlugin(member, pluginContext)) continue;
                     if ((member.kind === SyntaxKind.MethodDeclaration || node.kind === SyntaxKind.MethodSignature) && !(<MethodDeclaration>member).body) {
                         emitCommentsOnNotEmittedNode(member);
                     }
@@ -7779,6 +7791,8 @@ const _super = (function (geti, seti) {
             }
 
             function emitJavaScriptWorker(node: Node) {
+                if (node.emitterPlugin && node.emitterPlugin(node, pluginContext)) return;
+
                 // Check if the node can be emitted regardless of the ScriptTarget
                 switch (node.kind) {
                     case SyntaxKind.Identifier:

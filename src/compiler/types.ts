@@ -395,6 +395,7 @@ namespace ts {
         HasDecorators =         1 << 23,  // If the file has decorators (initialized by binding)
         HasParamDecorators =    1 << 24,  // If the file has parameter decorators (initialized by binding)
         HasAsyncFunctions =     1 << 25,  // If the file has async functions (initialized by binding)
+        PluginSynthetic =       1 << 26,  // Node inserted by parser plugins
 
         Modifier = Export | Ambient | Public | Private | Protected | Static | Abstract | Default | Async,
         AccessibilityModifier = Public | Private | Protected,
@@ -1925,6 +1926,7 @@ namespace ts {
         moduleExportsSomeValue(moduleReferenceExpression: Expression): boolean;
         isArgumentsLocalBinding(node: Identifier): boolean;
         getExternalModuleFileFromDeclaration(declaration: ImportEqualsDeclaration | ImportDeclaration | ExportDeclaration | ModuleDeclaration): SourceFile;
+        getSymbolDisplayBuilder(): SymbolDisplayBuilder;
     }
 
     export const enum SymbolFlags {
