@@ -6812,7 +6812,7 @@ namespace ts {
             }
 
             function classifyToken(token: Node): void {
-                if (nodeIsMissing(token)) {
+                if (nodeIsMissing(token) || nodeIsPluginSynthetic(token)) {
                     return;
                 }
 
@@ -6923,7 +6923,7 @@ namespace ts {
             }
 
             function processElement(element: Node) {
-                if (!element) {
+                if (!element || nodeIsPluginSynthetic(element)) {
                     return;
                 }
 

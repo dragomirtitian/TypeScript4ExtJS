@@ -1,5 +1,6 @@
 /// <reference path="scanner.ts"/>
 /// <reference path="utilities.ts"/>
+/// <reference path="plugins.ts" />
 
 namespace ts {
     let nodeConstructors = new Array<new () => Node>(SyntaxKind.Count);
@@ -440,6 +441,10 @@ namespace ts {
         let sourceFile: SourceFile;
         let parseDiagnostics: Diagnostic[];
         let syntaxCursor: IncrementalParser.SyntaxCursor;
+        let plugins: ts.IPluginsLookup = ts.defaultPlugins;
+        let pluginErrorReporter = (node: Node, message: DiagnosticMessage, arg0: any, arg1: any, arg2: any) => {
+            parseDiagnostics.push(createFileDiagnostic(sourceFile, node.pos, node.end - node.pos, message, arg0, arg1, arg2));
+        };
 
         let token: SyntaxKind;
         let sourceText: string;
@@ -1018,6 +1023,10 @@ namespace ts {
                 node.parserContextFlags |= ParserContextFlags.ThisNodeHasError;
             }
 
+            if (node.decorators) {
+                node.decorators.forEach(d => d.plugin && d.plugin(d, node));
+            }
+
             return node;
         }
 
@@ -1391,6 +1400,7 @@ namespace ts {
                 if (isListElement(kind, /* inErrorRecovery */ false)) {
                     let element = parseListElement(kind, parseElement);
                     result.push(element);
+                    if (element.parserPlugin) element.parserPlugin(result, element, pluginErrorReporter);
 
                     continue;
                 }
@@ -4846,6 +4856,13 @@ namespace ts {
 
                 let decorator = <Decorator>createNode(SyntaxKind.Decorator, decoratorStart);
                 decorator.expression = doInDecoratorContext(parseLeftHandSideExpressionOrHigher);
+
+                if (decorator.expression.kind == SyntaxKind.CallExpression) {
+                    let callTarget = (<CallExpression>decorator.expression).expression;
+                    let pluginName = getTextOfNodeFromSourceText(sourceText, callTarget);
+                    decorator.plugin = plugins[pluginName];
+                }
+
                 decorators.push(finishNode(decorator));
             }
             if (decorators) {
@@ -6594,13 +6611,16 @@ namespace ts {
                         // we just returned a node from.So just simply check for that case and move
                         // forward in the array instead of searching for the node again.
                         if (current && current.end === position && currentArrayIndex < (currentArray.length - 1)) {
-                            currentArrayIndex++;
-                            current = currentArray[currentArrayIndex];
+                            do {
+                                currentArrayIndex++;
+                                if (!(currentArrayIndex < (currentArray.length - 1))) break;
+                                current = currentArray[currentArrayIndex];
+                            } while (ts.nodeIsPluginSynthetic(current));
                         }
 
                         // If we don't have a node, or the node we have isn't in the right position,
                         // then try to find a viable node at the position requested.
-                        if (!current || current.pos !== position) {
+                        if (!current || current.pos !== position || ts.nodeIsPluginSynthetic(current)) {
                             findHighestListElementThatStartsAtPosition(position);
                         }
                     }
@@ -6632,7 +6652,7 @@ namespace ts {
                 return;
 
                 function visitNode(node: Node) {
-                    if (position >= node.pos && position < node.end) {
+                    if (position >= node.pos && position < node.end && !nodeIsPluginSynthetic(node)) {
                         // Position was within this node.  Keep searching deeper to find the node.
                         forEachChild(node, visitNode, visitArray);
 
@@ -6651,7 +6671,7 @@ namespace ts {
                         for (let i = 0, n = array.length; i < n; i++) {
                             let child = array[i];
                             if (child) {
-                                if (child.pos === position) {
+                                if (child.pos === position && !nodeIsPluginSynthetic(child)) {
                                     // Found the right node.  We're done.
                                     currentArray = array;
                                     currentArrayIndex = i;
@@ -6659,7 +6679,7 @@ namespace ts {
                                     return true;
                                 }
                                 else {
-                                    if (child.pos < position && position < child.end) {
+                                    if (child.pos < position && position < child.end && !nodeIsPluginSynthetic(child)) {
                                         // Position in somewhere within this child.  Search in it and
                                         // stop searching in this array.
                                         forEachChild(child, visitNode, visitArray);

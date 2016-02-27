@@ -282,6 +282,7 @@ namespace ts {
             if (symbol.constEnumOnlyModule) result.constEnumOnlyModule = true;
             if (symbol.members) result.members = cloneSymbolTable(symbol.members);
             if (symbol.exports) result.exports = cloneSymbolTable(symbol.exports);
+            if (symbol.usagePlugins) result.usagePlugins = symbol.usagePlugins.splice(0);
             recordMergedSymbol(result, symbol);
             return result;
         }
@@ -304,6 +305,9 @@ namespace ts {
                 if (source.exports) {
                     if (!target.exports) target.exports = {};
                     mergeSymbolTable(target.exports, source.exports);
+                }
+                if (source.usagePlugins) {
+                    addPlugins(target, source.usagePlugins);
                 }
                 recordMergedSymbol(target, source);
             }
@@ -1147,6 +1151,9 @@ namespace ts {
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
             let type = <ObjectType>createType(kind);
             type.symbol = symbol;
+            if (symbol && symbol.usagePlugins) {
+                addPlugins(type, symbol.usagePlugins);
+            }
             return type;
         }
 
@@ -1684,11 +1691,11 @@ namespace ts {
                     }
                     if (pos < end) {
                         writePunctuation(writer, SyntaxKind.LessThanToken);
-                        writeType(typeArguments[pos++], TypeFormatFlags.None);
+                        writeType(typeArguments[pos++], flags & ~TypeFormatFlags.InElementType);
                         while (pos < end) {
                             writePunctuation(writer, SyntaxKind.CommaToken);
                             writeSpace(writer);
-                            writeType(typeArguments[pos++], TypeFormatFlags.None);
+                            writeType(typeArguments[pos++], flags & ~TypeFormatFlags.InElementType);
                         }
                         writePunctuation(writer, SyntaxKind.GreaterThanToken);
                     }
@@ -3259,6 +3266,9 @@ namespace ts {
             sig.minArgumentCount = minArgumentCount;
             sig.hasRestParameter = hasRestParameter;
             sig.hasStringLiterals = hasStringLiterals;
+            if (declaration && declaration.usagePlugins) {
+                addPlugins(sig, declaration.usagePlugins);
+            }
             return sig;
         }
 
@@ -6751,6 +6761,10 @@ namespace ts {
                 return unknownType;
             }
 
+            if (baseClassType.usagePlugins) {
+                invokePlugins(baseClassType.usagePlugins, node, baseClassType, error, getNodeLinks);
+            }
+
             return nodeCheckFlag === NodeCheckFlags.SuperStatic
                 ? getBaseConstructorTypeOfClass(classType)
                 : baseClassType;
@@ -8075,6 +8089,10 @@ namespace ts {
                 return unknownType;
             }
 
+            if (prop.usagePlugins) {
+                invokePlugins(prop.usagePlugins, node, prop, error, getNodeLinks);
+            }
+
             getNodeLinks(node).resolvedSymbol = prop;
 
             if (prop.parent && prop.parent.flags & SymbolFlags.Class) {
@@ -9277,6 +9295,7 @@ namespace ts {
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.GetAccessor:
                 case SyntaxKind.SetAccessor:
+                case SyntaxKind.FunctionDeclaration:
                     return Diagnostics.Unable_to_resolve_signature_of_method_decorator_when_called_as_an_expression;
             }
         }
@@ -9348,6 +9367,10 @@ namespace ts {
             checkGrammarTypeArguments(node, node.typeArguments) || checkGrammarArguments(node, node.arguments);
 
             let signature = getResolvedSignature(node);
+            if (signature.usagePlugins) {
+                invokePlugins(signature.usagePlugins, node, signature, error, getNodeLinks);
+            }
+
             if (node.expression.kind === SyntaxKind.SuperKeyword) {
                 return voidType;
             }
@@ -10449,6 +10472,10 @@ namespace ts {
             else {
                 let uninstantiatedType = checkExpressionWorker(<Expression>node, contextualMapper);
                 type = instantiateTypeWithSingleGenericCallSignature(<Expression>node, uninstantiatedType, contextualMapper);
+            }
+
+            if (type.usagePlugins) {
+                invokePlugins(type.usagePlugins, node, type, error, getNodeLinks);
             }
 
             if (isConstEnumObjectType(type)) {
@@ -14892,7 +14919,8 @@ namespace ts {
                 collectLinkedAliases,
                 getReferencedValueDeclaration,
                 getTypeReferenceSerializationKind,
-                isOptionalParameter
+                isOptionalParameter,
+                getSymbolDisplayBuilder
             };
         }
 

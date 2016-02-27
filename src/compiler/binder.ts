@@ -133,6 +133,10 @@ namespace ts {
             if (symbolFlags & SymbolFlags.Value && !symbol.valueDeclaration) {
                 symbol.valueDeclaration = node;
             }
+
+            if (node.usagePlugins) {
+                addPlugins(symbol, node.usagePlugins);
+            }
         }
 
         // Should not be called on a declaration with a computed property name,

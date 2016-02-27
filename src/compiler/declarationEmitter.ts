@@ -63,6 +63,12 @@ namespace ts {
         // Collecting this separately because reference paths need to be first thing in the declaration file
         // and we could be collecting these paths from multiple files into single one with --out option
         let referencePathsOutput = "";
+        let pluginContext: PluginDeclarationEmitterContext = {
+            emit,
+            writer,
+            symbolWriter: writer,
+            emitResolver: resolver
+        };
 
         if (root) {
             // Emitting just a single file, so emit references in this file only
@@ -1548,7 +1554,23 @@ namespace ts {
             }
         }
 
+        function emitDecorators(node: Node) {
+            let decorators = node.decorators;
+            if (!decorators) return;
+            let first = true;
+            for (let d of decorators) {
+                if (d.declarationEmitterPlugin) {
+                    if (first && !isModuleElementVisible(<Declaration>node)) return;
+                    first = false;
+                    d.declarationEmitterPlugin(d, pluginContext);
+                }
+            }
+        }
+
         function emitNode(node: Node) {
+            emitDecorators(node);
+            if (node.declarationEmitterPlugin && node.declarationEmitterPlugin(node, pluginContext)) return;
+
             switch (node.kind) {
                 case SyntaxKind.FunctionDeclaration:
                 case SyntaxKind.ModuleDeclaration:

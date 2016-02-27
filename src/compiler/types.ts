@@ -379,6 +379,7 @@ namespace ts {
         Namespace =         0x00020000,  // Namespace declaration
         ExportContext =     0x00040000,  // Export context (initialized by binding)
         ContainsThis =      0x00080000,  // Interface contains references to "this"
+        PluginSynthetic =   0x00100000,  // Node inserted by parser plugins
 
         Modifier = Export | Ambient | Public | Private | Protected | Static | Abstract | Default | Async,
         AccessibilityModifier = Public | Private | Protected,
@@ -1611,6 +1612,7 @@ namespace ts {
         getReferencedValueDeclaration(reference: Identifier): Declaration;
         getTypeReferenceSerializationKind(typeName: EntityName): TypeReferenceSerializationKind;
         isOptionalParameter(node: ParameterDeclaration): boolean;
+        getSymbolDisplayBuilder(): SymbolDisplayBuilder;
     }
 
     export const enum SymbolFlags {
