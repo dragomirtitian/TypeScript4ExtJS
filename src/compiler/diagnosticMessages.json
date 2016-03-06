@@ -2455,6 +2455,15 @@
         "code": 6112
     },
 
+    "Plugin '{0}' could not be loaded. Exception {1}": {
+        "category": "Error",
+        "code": 6113
+    },
+    "Module '{0}' could not be loaded. Exception {1}": {
+        "category": "Error",
+        "code": 6114
+    },
+    
     "Variable '{0}' implicitly has an '{1}' type.": {
         "category": "Error",
         "code": 7005

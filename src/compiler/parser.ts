@@ -448,8 +448,9 @@ namespace ts {
         let sourceFile: SourceFile;
         let parseDiagnostics: Diagnostic[];
         let syntaxCursor: IncrementalParser.SyntaxCursor;
+
         let plugins: ts.IPluginsLookup = ts.defaultPlugins;
-        let pluginErrorReporter = (node: Node, message: DiagnosticMessage, arg0: any, arg1: any, arg2: any) => {
+        const pluginDiagnosticReporter = (node: Node, message: DiagnosticMessage, arg0: any, arg1: any, arg2: any) => {
             parseDiagnostics.push(createFileDiagnostic(sourceFile, node.pos, node.end - node.pos, message, arg0, arg1, arg2));
         };
 
@@ -557,6 +558,7 @@ namespace ts {
         function initializeState(fileName: string, _sourceText: string, languageVersion: ScriptTarget, isJavaScriptFile: boolean, _syntaxCursor: IncrementalParser.SyntaxCursor) {
             NodeConstructor = objectAllocator.getNodeConstructor();
             SourceFileConstructor = objectAllocator.getSourceFileConstructor();
+            plugins = ts.defaultPlugins;
 
             sourceText = _sourceText;
             syntaxCursor = _syntaxCursor;
@@ -1393,7 +1395,7 @@ namespace ts {
                 if (isListElement(kind, /*inErrorRecovery*/ false)) {
                     const element = parseListElement(kind, parseElement);
                     result.push(element);
-                    if (element.parserPlugin) element.parserPlugin(result, element, pluginErrorReporter);
+                    if (element.parserPlugin) element.parserPlugin(result, element, pluginDiagnosticReporter);
 
                     continue;
                 }
@@ -4956,8 +4958,8 @@ namespace ts {
                 decorator.expression = doInDecoratorContext(parseLeftHandSideExpressionOrHigher);
 
                 if (decorator.expression.kind == SyntaxKind.CallExpression) {
-                    let callTarget = (<CallExpression>decorator.expression).expression;
-                    let pluginName = getTextOfNodeFromSourceText(sourceText, callTarget);
+                    const callTarget = (<CallExpression>decorator.expression).expression;
+                    const pluginName = getTextOfNodeFromSourceText(sourceText, callTarget);
                     decorator.plugin = plugins[pluginName];
                 }
 

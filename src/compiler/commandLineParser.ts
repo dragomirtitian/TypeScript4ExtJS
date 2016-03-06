@@ -305,6 +305,11 @@ namespace ts {
             name: "noCustomAsyncPromise",
             type: "boolean",
             experimental: true
+        },
+        {
+            name: "plugins",
+            type: "string",
+            isFilePath: true
         }
     ];
 

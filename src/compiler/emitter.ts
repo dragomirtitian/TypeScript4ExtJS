@@ -515,7 +515,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
             let sourceMap = compilerOptions.sourceMap || compilerOptions.inlineSourceMap ? createSourceMapWriter(host, writer) : getNullSourceMapWriter();
             let { setSourceFile, emitStart, emitEnd, emitPos } = sourceMap;
 
-            let pluginContext: PluginEmitterContext = {
+            const pluginContext: PluginEmitterContext = {
                 emit,
                 emitLeadingComments,
                 emitEnd,

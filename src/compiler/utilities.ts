@@ -923,7 +923,7 @@ namespace ts {
 
         // We allow plugin decorators on any kind of declaration
         // TO REVIEW !
-        let decorators = (<Declaration>node).decorators;
+        const decorators = (<Declaration>node).decorators;
         if (decorators) {
             for (let i = 0, n = decorators.length; i < n; i++) {
                 if (!decorators[i].plugin) break;

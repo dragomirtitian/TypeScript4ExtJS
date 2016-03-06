@@ -65,8 +65,7 @@ var servicesSources = [
     "emitter.ts",
     "program.ts",
     "commandLineParser.ts",
-    "diagnosticInformationMap.generated.ts",
-    "../plugins/ExtJsPlugins.ts"
+    "diagnosticInformationMap.generated.ts"
 ].map(function (f) {
     return path.join(compilerDirectory, f);
 }).concat([

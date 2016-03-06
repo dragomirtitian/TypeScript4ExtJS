@@ -72,7 +72,7 @@ namespace ts {
         // Collecting this separately because reference paths need to be first thing in the declaration file
         // and we could be collecting these paths from multiple files into single one with --out option
         let referencePathsOutput = "";
-        let pluginContext: PluginDeclarationEmitterContext = {
+        const pluginContext: PluginDeclarationEmitterContext = {
             emit,
             writer,
             symbolWriter: writer,
@@ -1615,10 +1615,10 @@ namespace ts {
         }
 
         function emitDecorators(node: Node) {
-            let decorators = node.decorators;
+            const decorators = node.decorators;
             if (!decorators) return;
             let first = true;
-            for (let d of decorators) {
+            for (const d of decorators) {
                 if (d.declarationEmitterPlugin) {
                     if (first && !isModuleElementVisible(<Declaration>node)) return;
                     first = false;

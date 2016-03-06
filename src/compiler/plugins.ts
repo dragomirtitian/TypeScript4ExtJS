@@ -1,13 +1,13 @@
 ﻿module ts {
-    /* @internal */ export type PluginErrorReporter = (location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any) => void;
+    /* @internal */ export type PluginDiagnosticReporter = (location: Node, message: DiagnosticMessage, arg0?: any, arg1?: any, arg2?: any) => void;
     /* @internal */ export type GetNodeLinks = (node: Node) => NodeLinks;
-    /* @internal */ export type UsagePluginCallback = (node: Node, typeOrSignature: Type | Signature | Symbol, reportError: PluginErrorReporter, getNodeLinks: GetNodeLinks) => void;
+    /* @internal */ export type UsagePluginCallback = (node: Node, typeOrSignature: Type | Signature | Symbol, reportError: PluginDiagnosticReporter, getNodeLinks: GetNodeLinks) => void;
     /* @internal */ export type UsagePlugin = UsagePluginCallback[];
 
     /* @internal */
     export interface Node {
         /* plugins */
-        parserPlugin?: (nodes: NodeArray<Node>, parsedNode: Node, reportError: PluginErrorReporter) => void;
+        parserPlugin?: (nodes: NodeArray<Node>, parsedNode: Node, reportError: PluginDiagnosticReporter) => void;
         emitterPlugin?: (node: Node, context: PluginEmitterContext) => boolean;
         declarationEmitterPlugin?: (node: Node, context: PluginDeclarationEmitterContext) => boolean;
     }
@@ -26,7 +26,7 @@
     }
 
     /* @internal */
-    export function invokePlugins(plugins: UsagePlugin, node: Node, typeOrSignature: Type | Signature | Symbol, reportError: PluginErrorReporter, getNodeLinks: GetNodeLinks) {
+    export function invokePlugins(plugins: UsagePlugin, node: Node, typeOrSignature: Type | Signature | Symbol, reportError: PluginDiagnosticReporter, getNodeLinks: GetNodeLinks) {
         for (let p of plugins) {
             p(node, typeOrSignature, reportError, getNodeLinks);
         }

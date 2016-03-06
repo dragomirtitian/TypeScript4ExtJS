@@ -1,5 +1,3 @@
-/// <reference path="../plugins/ExtJsPlugins.ts" />
-
 //
 // Copyright (c) Microsoft Corporation.  All rights reserved.
 // 
