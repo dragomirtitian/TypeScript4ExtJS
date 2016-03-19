@@ -1015,7 +1015,9 @@ namespace ts {
             }
 
             if (node.decorators) {
-                node.decorators.forEach(d => d.plugin && d.plugin(d, node));
+                node.decorators.forEach(d => {
+                    if (d.plugin !== undefined) d.plugin(d, node);
+                });
             }
 
             return node;
@@ -1395,7 +1397,7 @@ namespace ts {
                 if (isListElement(kind, /*inErrorRecovery*/ false)) {
                     const element = parseListElement(kind, parseElement);
                     result.push(element);
-                    if (element.parserPlugin) element.parserPlugin(result, element, pluginDiagnosticReporter);
+                    if (element.parserPlugin !== undefined) element.parserPlugin(result, element, pluginDiagnosticReporter);
 
                     continue;
                 }

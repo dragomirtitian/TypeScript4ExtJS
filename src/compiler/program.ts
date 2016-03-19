@@ -295,7 +295,10 @@ namespace ts {
             getNewLine: () => newLine,
             fileExists: fileName => sys.fileExists(fileName),
             readFile: fileName => sys.readFile(fileName),
-            directoryExists: directoryName => sys.directoryExists(directoryName)
+            directoryExists: directoryName => sys.directoryExists(directoryName),
+            loadPluginModule(pluginModuleFileName: string) {
+                loadPluginModule(pluginModuleFileName, this, fileName => sys.readFile(fileName), (content, fileName) => sys.compileModule(content, fileName))
+            }
         };
     }
 
@@ -379,6 +382,17 @@ namespace ts {
                 }
                 return resolvedModuleNames;
             });
+
+        ts.defaultPlugins = createDefaultPlugins();
+        if (options.plugins !== undefined) {
+            try {
+                host.loadPluginModule(options.plugins);
+            }
+            catch (m) {
+                const childMessage = m.message || m.messageText || m;
+                fileProcessingDiagnostics.add(createCompilerDiagnostic(Diagnostics.Plugin_0_could_not_be_loaded_Exception_1, options.plugins, childMessage));
+            }
+        }
 
         const filesByName = createFileMap<SourceFile>();
         // stores 'filename -> file association' ignoring case

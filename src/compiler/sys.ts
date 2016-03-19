@@ -22,6 +22,7 @@ namespace ts {
         readDirectory(path: string, extension?: string, exclude?: string[]): string[];
         getMemoryUsage?(): number;
         exit(exitCode?: number): void;
+        compileModule(content: string, moduleFileName: string): (ts: any, moduleFileName: string, host: CompilerHost) => void;
     }
 
     interface WatchedFile {
@@ -218,7 +219,8 @@ namespace ts {
                     }
                     catch (e) {
                     }
-                }
+                },
+                compileModule: evalPluginModuleLoader,
             };
         }
 
@@ -494,6 +496,12 @@ namespace ts {
                 }
             }
 
+            function compileModule(content: string, moduleFileName: string) {
+                const module = require("vm").runInThisContext(content,
+                    { filename: moduleFileName, lineOffset: 0 });
+                return module;
+            }
+
             return {
                 args: process.argv.slice(2),
                 newLine: _os.EOL,
@@ -568,7 +576,8 @@ namespace ts {
                 },
                 exit(exitCode?: number): void {
                     process.exit(exitCode);
-                }
+                },
+                compileModule
             };
         }
 
@@ -599,6 +608,7 @@ namespace ts {
                 getCurrentDirectory: () => ChakraHost.currentDirectory,
                 readDirectory: ChakraHost.readDirectory,
                 exit: ChakraHost.quit,
+                compileModule: evalPluginModuleLoader
             };
         }
 

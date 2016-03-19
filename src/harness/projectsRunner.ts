@@ -178,7 +178,8 @@ class ProjectRunner extends RunnerBase {
                     useCaseSensitiveFileNames: () => Harness.IO.useCaseSensitiveFileNames(),
                     getNewLine: () => Harness.IO.newLine(),
                     fileExists: fileName => fileName === Harness.Compiler.defaultLibFileName ||  getSourceFileText(fileName) !== undefined,
-                    readFile: fileName => Harness.IO.readFile(fileName)
+                    readFile: fileName => Harness.IO.readFile(fileName),
+                    loadPluginModule: moduleFileName => ts.loadPluginModule(moduleFileName, fileName => Harness.IO.readFile(fileName), ts.evalPluginModuleLoader),
                 };
             }
         }

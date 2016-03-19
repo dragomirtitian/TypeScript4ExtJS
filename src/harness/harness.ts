@@ -884,7 +884,8 @@ namespace Harness {
                 useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
                 getNewLine: () => newLine,
                 fileExists: fileName => getSourceFile(fileName, ts.ScriptTarget.ES5) !== undefined,
-                readFile: (fileName: string): string => { throw new Error("NotYetImplemented"); }
+                readFile: (fileName: string): string => { throw new Error("NotYetImplemented"); },
+                loadPluginModule: (moduleFileName) => { }
             };
         }
 

@@ -926,7 +926,7 @@ namespace ts {
         const decorators = (<Declaration>node).decorators;
         if (decorators) {
             for (let i = 0, n = decorators.length; i < n; i++) {
-                if (!decorators[i].plugin) break;
+                if (decorators[i].plugin !== undefined) break;
                 if (i == n - 1) return true;
             }
         }

@@ -606,6 +606,10 @@ namespace Harness.LanguageService {
 
         startGroup(): void {
         }
+
+        compileModule(content: string, moduleFileName: string): (mts: typeof ts, moduleFileName: string) => void {
+            return ts.evalPluginModuleLoader(content, moduleFileName);
+        }
     }
 
     export class ServerLanugageServiceAdapter implements LanguageServiceAdapter {

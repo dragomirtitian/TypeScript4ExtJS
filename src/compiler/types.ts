@@ -2709,6 +2709,7 @@ namespace ts {
          * 'throw new Error("NotImplemented")'
          */
         resolveModuleNames?(moduleNames: string[], containingFile: string): ResolvedModule[];
+        loadPluginModule(moduleName: string): void;
     }
 
     export interface TextSpan {

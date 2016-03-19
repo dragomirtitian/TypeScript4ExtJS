@@ -1619,7 +1619,7 @@ namespace ts {
             if (!decorators) return;
             let first = true;
             for (const d of decorators) {
-                if (d.declarationEmitterPlugin) {
+                if (d.declarationEmitterPlugin !== undefined) {
                     if (first && !isModuleElementVisible(<Declaration>node)) return;
                     first = false;
                     d.declarationEmitterPlugin(d, pluginContext);
@@ -1629,7 +1629,7 @@ namespace ts {
 
         function emitNode(node: Node) {
             emitDecorators(node);
-            if (node.declarationEmitterPlugin && node.declarationEmitterPlugin(node, pluginContext)) return;
+            if (node.declarationEmitterPlugin !== undefined && node.declarationEmitterPlugin(node, pluginContext)) return;
 
             switch (node.kind) {
                 case SyntaxKind.FunctionDeclaration:

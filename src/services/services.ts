@@ -1923,7 +1923,8 @@ namespace ts {
             getNewLine: () => newLine,
             fileExists: (fileName): boolean => fileName === inputFileName,
             readFile: (fileName): string => "",
-            directoryExists: directoryExists => true
+            directoryExists: directoryExists => true,
+            loadPluginModule: () => { }
         };
 
         const program = createProgram([inputFileName], options, compilerHost);
@@ -2775,7 +2776,8 @@ namespace ts {
                 directoryExists: directoryName => {
                     Debug.assert(!host.resolveModuleNames);
                     return directoryProbablyExists(directoryName, host);
-                }
+                },
+                loadPluginModule: () => { }
             };
 
             if (host.resolveModuleNames) {

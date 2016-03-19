@@ -1363,7 +1363,7 @@ namespace ts {
         function createObjectType(kind: TypeFlags, symbol?: Symbol): ObjectType {
             const type = <ObjectType>createType(kind);
             type.symbol = symbol;
-            if (symbol && symbol.usagePlugins) {
+            if (symbol && symbol.usagePlugins !== undefined) {
                 addPlugins(type, symbol.usagePlugins);
             }
             return type;
@@ -8985,7 +8985,7 @@ namespace ts {
                 return unknownType;
             }
 
-            if (prop.usagePlugins) {
+            if (prop.usagePlugins !== undefined) {
                 invokePlugins(prop.usagePlugins, node, prop, error, getNodeLinks);
             }
 
