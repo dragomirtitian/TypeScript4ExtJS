@@ -290,7 +290,8 @@ module ts {
                     let path = normalizePath(combinePaths(currentDirectory, fileName));
                     return hasProperty(files, path);
                 },
-                readFile: (fileName): string => { throw new Error("NotImplemented"); }
+                readFile: (fileName): string => { throw new Error("NotImplemented"); },
+                loadPluginModule: () => { }
             };
 
             const program = createProgram(rootFiles, options, host);
@@ -373,7 +374,8 @@ export = C;
                     let path = getCanonicalFileName(normalizePath(combinePaths(currentDirectory, fileName)));
                     return hasProperty(files, path);
                 },
-                readFile: (fileName): string => { throw new Error("NotImplemented"); }
+                readFile: (fileName): string => { throw new Error("NotImplemented"); },
+                loadPluginModule: () => { }
             };
             const program = createProgram(rootFiles, options, host);
             const diagnostics = sortAndDeduplicateDiagnostics(program.getSemanticDiagnostics().concat(program.getOptionsDiagnostics()));

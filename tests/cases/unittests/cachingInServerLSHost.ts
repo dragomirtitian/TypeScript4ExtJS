@@ -60,7 +60,8 @@ module ts {
                 return {
                     close: () => { }
                 }
-            }
+            },
+            compileModule: evalPluginModuleLoader
         };
     }
 

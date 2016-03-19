@@ -130,6 +130,9 @@ module ts {
             readFile: fileName => {
                 let file = lookUp(files, fileName);
                 return file && file.text;
+            },
+            loadPluginModule(moduleFileName: string) {
+                loadPluginModule(moduleFileName, this.readFile, evalPluginModuleLoader);
             }
         }
     }
