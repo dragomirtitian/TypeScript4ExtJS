@@ -7,12 +7,23 @@ namespace ts.codefix {
      * @returns Empty string iff there are no member insertions.
      */
     export function createMissingMemberNodes(classDeclaration: ClassLikeDeclaration, possiblyMissingSymbols: ReadonlyArray<Symbol>, checker: TypeChecker, out: (node: ClassElement) => void): void {
-        const classMembers = classDeclaration.symbol.members;
+        const apparentProperties = checker.getTypeAtLocation(classDeclaration).getApparentProperties();
         for (const symbol of possiblyMissingSymbols) {
-            if (!classMembers.has(symbol.escapedName)) {
+            if (!apparentProperties.some(s => s.escapedName === symbol.escapedName && !symbolPointsToNonPrivateAndAbstractMember(s))) {
                 addNewNodeForMemberSymbol(symbol, classDeclaration, checker, out);
             }
         }
+    }
+    /**
+     * Checks weather a symbol is not private and is abstract
+     * @param symbol The symbol to tests
+     * @returns True if the symbol is not provate and is abstract
+     */
+    export function symbolPointsToNonPrivateAndAbstractMember(symbol: Symbol): boolean {
+        // See `codeFixClassExtendAbstractProtectedProperty.ts` in https://github.com/Microsoft/TypeScript/pull/11547/files
+        // (now named `codeFixClassExtendAbstractPrivateProperty.ts`)
+        const flags = getModifierFlags(first(symbol.getDeclarations()));
+        return !(flags & ModifierFlags.Private) && !!(flags & ModifierFlags.Abstract);
     }
 
     /**
