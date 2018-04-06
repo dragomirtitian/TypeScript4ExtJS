@@ -2248,7 +2248,7 @@ namespace ts {
         function parseTypeQuery(): TypeQueryNode {
             const node = <TypeQueryNode>createNode(SyntaxKind.TypeQuery);
             parseExpected(SyntaxKind.TypeOfKeyword);
-            node.exprName = parseEntityName(/*allowReservedWords*/ true);
+            node.exprName = parseSimpleUnaryExpression();
             return finishNode(node);
         }
 

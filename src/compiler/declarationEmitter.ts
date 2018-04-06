@@ -523,7 +523,7 @@ namespace ts {
 
             function emitTypeQuery(type: TypeQueryNode) {
                 write("typeof ");
-                emitEntityName(type.exprName);
+                emitEntityName(<any>type.exprName);
             }
 
             function emitArrayType(type: ArrayTypeNode) {

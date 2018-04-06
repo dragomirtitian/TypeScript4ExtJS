@@ -655,13 +655,13 @@ namespace ts {
         return <ConstructorTypeNode>updateSignatureDeclaration(node, typeParameters, parameters, type);
     }
 
-    export function createTypeQueryNode(exprName: EntityName) {
+    export function createTypeQueryNode(exprName: UnaryExpression) {
         const node = createSynthesizedNode(SyntaxKind.TypeQuery) as TypeQueryNode;
         node.exprName = exprName;
         return node;
     }
 
-    export function updateTypeQueryNode(node: TypeQueryNode, exprName: EntityName) {
+    export function updateTypeQueryNode(node: TypeQueryNode, exprName: UnaryExpression) {
         return node.exprName !== exprName
             ? updateNode(createTypeQueryNode(exprName), node)
             : node;

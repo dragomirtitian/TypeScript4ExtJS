@@ -3064,7 +3064,7 @@ namespace ts {
 
                 function createTypeQueryNodeFromSymbol(symbol: Symbol, symbolFlags: SymbolFlags) {
                     const entityName = symbolToName(symbol, context, symbolFlags, /*expectsIdentifier*/ false);
-                    return createTypeQueryNode(entityName);
+                    return createTypeQueryNode(<any>entityName);
                 }
 
                 function symbolToTypeReferenceName(symbol: Symbol) {

@@ -12,9 +12,9 @@
     "showOutput": "silent",
     "tasks": [
         {
-            "taskName": "local",
+            "taskName": "tsc",
             "isBuildCommand": true,
-            "showOutput": "silent",
+            "showOutput": "always",
             "problemMatcher": [
                 "$tsc"
             ]

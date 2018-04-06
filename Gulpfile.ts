@@ -445,7 +445,7 @@ gulp.task(builtLocalCompiler, /*help*/ false, [servicesFile], () => {
         .pipe(sourcemaps.init())
         .pipe(localCompilerProject())
         .pipe(prependCopyright())
-        .pipe(sourcemaps.write("."))
+        .pipe(sourcemaps.write(".", { includeContent: false, sourceRoot: "../../src/compiler" }))
         .pipe(gulp.dest("src/compiler"));
 });
 
@@ -516,7 +516,7 @@ gulp.task(serverFile, /*help*/ false, [servicesFile, typingsInstallerJs, cancell
         .pipe(sourcemaps.init())
         .pipe(serverProject())
         .pipe(prependCopyright())
-        .pipe(sourcemaps.write("."))
+        .pipe(sourcemaps.write(".", { includeContent: false, sourceRoot: "../../src/compiler" }))
         .pipe(gulp.dest("src/server"));
 });
 

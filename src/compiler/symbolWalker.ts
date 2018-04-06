@@ -10,7 +10,7 @@ namespace ts {
         getResolvedSymbol: (node: Node) => Symbol,
         getIndexTypeOfStructuredType: (type: Type, kind: IndexKind) => Type,
         getConstraintFromTypeParameter: (typeParameter: TypeParameter) => Type,
-        getFirstIdentifier: (node: EntityNameOrEntityNameExpression) => Identifier) {
+        _: (node: EntityNameOrEntityNameExpression) => Identifier) {
 
         return getSymbolWalker;
 
@@ -181,7 +181,8 @@ namespace ts {
                     // query node on any of the symbol's declarations and get symbols there
                     if ((d as any).type && (d as any).type.kind === SyntaxKind.TypeQuery) {
                         const query = (d as any).type as TypeQueryNode;
-                        const entity = getResolvedSymbol(getFirstIdentifier(query.exprName));
+                        //const entity = getResolvedSymbol(getFirstIdentifier(query.exprName));
+                        const entity = getResolvedSymbol(query.exprName);
                         visitSymbol(entity);
                     }
                 });
