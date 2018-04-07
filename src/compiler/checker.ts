@@ -11451,9 +11451,17 @@ namespace ts {
 
         /**
          * Return true if type was inferred from an object literal, written as an object type literal, or is the shape of a module
-         * with no call or construct signatures.
+         * with no call or construct signatures, or is an intersection type and one of the constituents of the intersection satisfies any on the previous rules.
          */
         function isObjectTypeWithInferableIndex(type: Type) {
+            if (type.flags & TypeFlags.Intersection) {
+                for (const t of (<IntersectionType>type).types) {
+                    if (isObjectTypeWithInferableIndex(t)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
             return type.symbol && (type.symbol.flags & (SymbolFlags.ObjectLiteral | SymbolFlags.TypeLiteral | SymbolFlags.ValueModule)) !== 0 &&
                 !typeHasCallOrConstructSignatures(type);
         }

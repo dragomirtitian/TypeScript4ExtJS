@@ -1,0 +1,18 @@
+=== tests/cases/compiler/stringIndexerAndCallSignature.ts ===
+type I = {
+>I : I
+
+    (): string;
+    [name: string]: number;
+>name : string
+}
+
+declare let val: { (): string } & { foo: number; }
+>val : (() => string) & { foo: number; }
+>foo : number
+
+let a: I = val;
+>a : I
+>I : I
+>val : (() => string) & { foo: number; }
+
