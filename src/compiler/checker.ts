@@ -20284,11 +20284,20 @@ namespace ts {
                     // A parameter declaration decorator will have three arguments (see
                     // `ParameterDecorator` in core.d.ts).
                     const func = <FunctionLikeDeclaration>parent.parent;
-                    return [
-                        createSyntheticExpression(expr, parent.parent.kind === SyntaxKind.Constructor ? getTypeOfSymbol(getSymbolOfNode(func)) : errorType),
-                        createSyntheticExpression(expr, anyType),
-                        createSyntheticExpression(expr, numberType)
-                    ];
+                    if (func.kind === SyntaxKind.Constructor) {
+                        return [
+                            createSyntheticExpression(expr, getTypeOfSymbol(getSymbolOfNode(func.parent))),
+                            createSyntheticExpression(expr, undefinedType),
+                            createSyntheticExpression(expr, getLiteralType(func.parameters.indexOf(<ParameterDeclaration>parent)))
+                        ];
+                    }
+                    else {
+                        return [
+                            createSyntheticExpression(expr, getParentTypeOfClassElement(<ClassElement>func)),
+                            createSyntheticExpression(expr, getClassElementPropertyKeyType(<ClassElement>func)),
+                            createSyntheticExpression(expr, getLiteralType(func.parameters.indexOf(<ParameterDeclaration>parent)))
+                        ];
+                    }
                 case SyntaxKind.PropertyDeclaration:
                 case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.GetAccessor:
