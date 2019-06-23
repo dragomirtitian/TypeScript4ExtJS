@@ -7134,13 +7134,10 @@ namespace ts {
                 const leftName = i >= leftCount ? undefined : getParameterNameAtPosition(left, i);
                 const rightName = i >= rightCount ? undefined : getParameterNameAtPosition(right, i);
 
-                const paramName = leftName === rightName ? leftName :
-                    !leftName ? rightName :
-                    !rightName ? leftName :
-                    undefined;
+                const paramName = combineParameterNames(leftName as string, rightName as string);
                 const paramSymbol = createSymbol(
                     SymbolFlags.FunctionScopedVariable | (isOptional && !isRestParam ? SymbolFlags.Optional : 0),
-                    paramName || `arg${i}` as __String
+                    (paramName || `arg${i}`) as __String
                 );
                 paramSymbol.type = isRestParam ? createArrayType(unionParamType) : unionParamType;
                 params[i] = paramSymbol;
@@ -7151,6 +7148,27 @@ namespace ts {
                 params[longestCount] = restParamSymbol;
             }
             return params;
+
+            function combineParameterNames(leftName: string, rightName: string) {
+                if (!leftName || !rightName) {
+                    return leftName || rightName;
+                }
+                if (leftName === rightName) {
+                    return leftName;
+                }
+
+                const rightIndex = leftName.indexOf(rightName);
+                if (rightIndex !== -1
+                    && (leftName[rightIndex - 1] === " " || rightIndex === 0)
+                    && (leftName[rightIndex + rightName.length] === " " || leftName.length === rightIndex + rightName.length)) {
+                    return leftName;
+                }
+
+                if (leftName.length > 50) {
+                    return leftName;
+                }
+                return `${leftName} & ${rightName}`;
+            }
         }
 
         function combineSignaturesOfUnionMembers(left: Signature, right: Signature): Signature {
