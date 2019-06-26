@@ -5139,8 +5139,11 @@ namespace ts {
                     case AssignmentDeclarationKind.ExportsProperty:
                     case AssignmentDeclarationKind.ThisProperty:
                     case AssignmentDeclarationKind.Property:
-                    case AssignmentDeclarationKind.PrototypeProperty:
                         return ((expr as BinaryExpression).left as PropertyAccessExpression).name;
+                    case AssignmentDeclarationKind.PrototypeProperty:
+                        const assignmentTarget = (expr as BinaryExpression).left as PropertyAccessExpression;
+                        const prototypeAccess = assignmentTarget.expression as PropertyAccessExpression;
+                        return prototypeAccess.expression as Identifier;
                     case AssignmentDeclarationKind.ObjectDefinePropertyValue:
                     case AssignmentDeclarationKind.ObjectDefinePropertyExports:
                     case AssignmentDeclarationKind.ObjectDefinePrototypeProperty:

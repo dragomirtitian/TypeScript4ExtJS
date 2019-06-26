@@ -344,6 +344,12 @@ namespace ts.NavigationBar {
     }
 
     function tryMerge(a: NavigationBarNode, b: NavigationBarNode, parent: NavigationBarNode): boolean {
+        if (b.node.kind === SyntaxKind.BinaryExpression
+            && getAssignmentDeclarationKind(b.node as BinaryExpression) === AssignmentDeclarationKind.PrototypeProperty) {
+            merge(a, b);
+            return true;
+        }
+
         if (shouldReallyMerge(a.node, b.node, parent)) {
             merge(a, b);
             return true;
