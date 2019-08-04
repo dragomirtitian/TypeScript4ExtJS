@@ -180,7 +180,7 @@ namespace ts.codefix {
         const identsToRenameMap: Map<Identifier> = createMap(); // key is the symbol id
         const collidingSymbolMap: Map<Symbol[]> = createMap();
         forEachChild(nodeToRename, function visit(node: Node) {
-            if (!isIdentifier(node)) {
+            if (!isIdentifier(node) && !isPropertyAccessExpression(node)) {
                 forEachChild(node, visit);
                 return;
             }
@@ -204,7 +204,7 @@ namespace ts.codefix {
                     addNameToFrequencyMap(collidingSymbolMap, ident.text, symbol);
                 }
                 // we only care about identifiers that are parameters, declarations, or binding elements (don't care about other uses)
-                else if (node.parent && (isParameter(node.parent) || isVariableDeclaration(node.parent) || isBindingElement(node.parent))) {
+                else if (node.parent && isIdentifier(node) && (isParameter(node.parent) || isVariableDeclaration(node.parent) || isBindingElement(node.parent))) {
                     const originalName = node.text;
                     const collidingSymbols = collidingSymbolMap.get(originalName);
 
@@ -448,13 +448,15 @@ namespace ts.codefix {
             case SyntaxKind.NullKeyword:
                 // do not produce a transformed statement for a null argument
                 break;
+            case SyntaxKind.PropertyAccessExpression:
+            case SyntaxKind.CallExpression:
             case SyntaxKind.Identifier: // identifier includes undefined
                 if (!argName) {
                     // undefined was argument passed to promise handler
                     break;
                 }
 
-                const synthCall = createCall(getSynthesizedDeepClone(func as Identifier), /*typeArguments*/ undefined, isSynthIdentifier(argName) ? [argName.identifier] : []);
+                const synthCall = createCall(getSynthesizedDeepClone(func), /*typeArguments*/ undefined, isSynthIdentifier(argName) ? [argName.identifier] : []);
                 if (shouldReturn) {
                     return [createReturn(synthCall)];
                 }
@@ -602,7 +604,7 @@ namespace ts.codefix {
                 name = getMappedBindingNameOrDefault(param);
             }
         }
-        else if (isIdentifier(funcNode)) {
+        else if (isIdentifier(funcNode) || isPropertyAccessExpression(funcNode)) {
             name = getMapEntryOrDefault(funcNode);
         }
 
@@ -623,7 +625,7 @@ namespace ts.codefix {
             return createSynthBindingPattern(bindingName, elements);
         }
 
-        function getMapEntryOrDefault(identifier: Identifier): SynthIdentifier {
+        function getMapEntryOrDefault(identifier: Identifier | PropertyAccessExpression): SynthIdentifier {
             const originalNode = getOriginalNode(identifier);
             const symbol = getSymbol(originalNode);
 

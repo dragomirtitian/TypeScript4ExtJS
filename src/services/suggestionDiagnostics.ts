@@ -183,6 +183,8 @@ namespace ts {
                 visitedNestedConvertibleFunctions.set(getKeyFromNode(arg as FunctionLikeDeclaration), true);
                 /* falls through */
             case SyntaxKind.NullKeyword:
+            case SyntaxKind.PropertyAccessExpression:
+            case SyntaxKind.CallExpression:
             case SyntaxKind.Identifier: // identifier includes undefined
                 return true;
             default:

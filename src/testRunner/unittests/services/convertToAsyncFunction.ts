@@ -408,6 +408,14 @@ function rej(rejection){
 function catch_err(err){
     console.log(err);
 }`);
+    _testConvertToAsyncFunction("convertToAsyncFunction_CatchAndRejNestedRef", `
+function [#|f|]():Promise<void> {
+    return fetch('https://typescriptlang.org').catch(handler.handleError)
+}
+declare const handleError: () => void
+const handler = {
+    handleError: () => { }
+}`);
         _testConvertToAsyncFunction("convertToAsyncFunction_CatchRef", `
 function [#|f|]():Promise<void> {
     return fetch('https://typescriptlang.org').then(res).catch(catch_err)
