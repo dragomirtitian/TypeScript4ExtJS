@@ -1,0 +1,184 @@
+=== tests/cases/compiler/elaboratedParentCompatibility.ts ===
+interface Person {
+>Person : Symbol(Person, Decl(elaboratedParentCompatibility.ts, 0, 0))
+
+    residence: House;
+>residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>House : Symbol(House, Decl(elaboratedParentCompatibility.ts, 2, 1))
+}
+
+interface House {
+>House : Symbol(House, Decl(elaboratedParentCompatibility.ts, 2, 1))
+
+    isHouseOfPain: boolean;
+>isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+}
+
+declare let home: House;
+>home : Symbol(home, Decl(elaboratedParentCompatibility.ts, 8, 11))
+>House : Symbol(House, Decl(elaboratedParentCompatibility.ts, 2, 1))
+
+declare let person: Person; 
+>person : Symbol(person, Decl(elaboratedParentCompatibility.ts, 9, 11))
+>Person : Symbol(Person, Decl(elaboratedParentCompatibility.ts, 0, 0))
+
+home = person.residence.isHouseOfPain; 
+>home : Symbol(home, Decl(elaboratedParentCompatibility.ts, 8, 11))
+>person.residence.isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+>person.residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>person : Symbol(person, Decl(elaboratedParentCompatibility.ts, 9, 11))
+>residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+
+declare function fnHouse(home: House): void;
+>fnHouse : Symbol(fnHouse, Decl(elaboratedParentCompatibility.ts, 11, 38))
+>home : Symbol(home, Decl(elaboratedParentCompatibility.ts, 13, 25))
+>House : Symbol(House, Decl(elaboratedParentCompatibility.ts, 2, 1))
+
+fnHouse(person.residence.isHouseOfPain) // Suggest person.residence
+>fnHouse : Symbol(fnHouse, Decl(elaboratedParentCompatibility.ts, 11, 38))
+>person.residence.isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+>person.residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>person : Symbol(person, Decl(elaboratedParentCompatibility.ts, 9, 11))
+>residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+
+fnHouse((person.residence).isHouseOfPain) // Suggest person.residence
+>fnHouse : Symbol(fnHouse, Decl(elaboratedParentCompatibility.ts, 11, 38))
+>(person.residence).isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+>person.residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>person : Symbol(person, Decl(elaboratedParentCompatibility.ts, 9, 11))
+>residence : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+
+fnHouse(person["residence"].isHouseOfPain) // No suggestion here only suggest on dotted access
+>fnHouse : Symbol(fnHouse, Decl(elaboratedParentCompatibility.ts, 11, 38))
+>person["residence"].isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+>person : Symbol(person, Decl(elaboratedParentCompatibility.ts, 9, 11))
+>"residence" : Symbol(Person.residence, Decl(elaboratedParentCompatibility.ts, 0, 18))
+>isHouseOfPain : Symbol(House.isHouseOfPain, Decl(elaboratedParentCompatibility.ts, 4, 17))
+
+enum W { A, B, C }
+>W : Symbol(W, Decl(elaboratedParentCompatibility.ts, 16, 42))
+>A : Symbol(W.A, Decl(elaboratedParentCompatibility.ts, 18, 8))
+>B : Symbol(W.B, Decl(elaboratedParentCompatibility.ts, 18, 11))
+>C : Symbol(W.C, Decl(elaboratedParentCompatibility.ts, 18, 14))
+
+let wStatic: typeof W = W.A; // Suggest W
+>wStatic : Symbol(wStatic, Decl(elaboratedParentCompatibility.ts, 19, 3))
+>W : Symbol(W, Decl(elaboratedParentCompatibility.ts, 16, 42))
+>W.A : Symbol(W.A, Decl(elaboratedParentCompatibility.ts, 18, 8))
+>W : Symbol(W, Decl(elaboratedParentCompatibility.ts, 16, 42))
+>A : Symbol(W.A, Decl(elaboratedParentCompatibility.ts, 18, 8))
+
+class C {
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+
+    name: string;
+>name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+
+    method (): C {
+>method : Symbol(C.method, Decl(elaboratedParentCompatibility.ts, 22, 17))
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+
+        let c: C = this.name; // Suggest this
+>c : Symbol(c, Decl(elaboratedParentCompatibility.ts, 24, 11))
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+>this.name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+>this : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+>name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+
+        return c;
+>c : Symbol(c, Decl(elaboratedParentCompatibility.ts, 24, 11))
+    }
+}
+
+declare function getC(): C;
+>getC : Symbol(getC, Decl(elaboratedParentCompatibility.ts, 27, 1))
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+
+let cInstance:C = getC().name // No suggestion
+>cInstance : Symbol(cInstance, Decl(elaboratedParentCompatibility.ts, 30, 3))
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+>getC().name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+>getC : Symbol(getC, Decl(elaboratedParentCompatibility.ts, 27, 1))
+>name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+
+let cInstance2:C = cInstance.name //Suggest cInstance
+>cInstance2 : Symbol(cInstance2, Decl(elaboratedParentCompatibility.ts, 31, 3))
+>C : Symbol(C, Decl(elaboratedParentCompatibility.ts, 19, 28))
+>cInstance.name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+>cInstance : Symbol(cInstance, Decl(elaboratedParentCompatibility.ts, 30, 3))
+>name : Symbol(C.name, Decl(elaboratedParentCompatibility.ts, 21, 9))
+
+interface X { x: string }
+>X : Symbol(X, Decl(elaboratedParentCompatibility.ts, 31, 33))
+>x : Symbol(X.x, Decl(elaboratedParentCompatibility.ts, 33, 13))
+
+interface Y { y: number }
+>Y : Symbol(Y, Decl(elaboratedParentCompatibility.ts, 33, 25))
+>y : Symbol(Y.y, Decl(elaboratedParentCompatibility.ts, 34, 13))
+
+interface Z { z?: boolean }
+>Z : Symbol(Z, Decl(elaboratedParentCompatibility.ts, 34, 25))
+>z : Symbol(Z.z, Decl(elaboratedParentCompatibility.ts, 35, 13))
+
+type XY = X & Y;
+>XY : Symbol(XY, Decl(elaboratedParentCompatibility.ts, 35, 27))
+>X : Symbol(X, Decl(elaboratedParentCompatibility.ts, 31, 33))
+>Y : Symbol(Y, Decl(elaboratedParentCompatibility.ts, 33, 25))
+
+const xy: XY = {x: 'x', y: 10};
+>xy : Symbol(xy, Decl(elaboratedParentCompatibility.ts, 38, 5))
+>XY : Symbol(XY, Decl(elaboratedParentCompatibility.ts, 35, 27))
+>x : Symbol(x, Decl(elaboratedParentCompatibility.ts, 38, 16))
+>y : Symbol(y, Decl(elaboratedParentCompatibility.ts, 38, 23))
+
+const z1: Z = xy; // error, {xy} doesn't overlap with {z}
+>z1 : Symbol(z1, Decl(elaboratedParentCompatibility.ts, 40, 5))
+>Z : Symbol(Z, Decl(elaboratedParentCompatibility.ts, 34, 25))
+>xy : Symbol(xy, Decl(elaboratedParentCompatibility.ts, 38, 5))
+
+
+interface ViewStyle {
+>ViewStyle : Symbol(ViewStyle, Decl(elaboratedParentCompatibility.ts, 40, 17))
+
+    view: number
+>view : Symbol(ViewStyle.view, Decl(elaboratedParentCompatibility.ts, 43, 21))
+
+    styleMedia: string
+>styleMedia : Symbol(ViewStyle.styleMedia, Decl(elaboratedParentCompatibility.ts, 44, 16))
+}
+type Brand<T> = number & { __brand: T }
+>Brand : Symbol(Brand, Decl(elaboratedParentCompatibility.ts, 46, 1))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 47, 11))
+>__brand : Symbol(__brand, Decl(elaboratedParentCompatibility.ts, 47, 26))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 47, 11))
+
+declare function create<T extends { [s: string]: ViewStyle }>(styles: T): { [P in keyof T]: Brand<T[P]> };
+>create : Symbol(create, Decl(elaboratedParentCompatibility.ts, 47, 39))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 48, 24))
+>s : Symbol(s, Decl(elaboratedParentCompatibility.ts, 48, 37))
+>ViewStyle : Symbol(ViewStyle, Decl(elaboratedParentCompatibility.ts, 40, 17))
+>styles : Symbol(styles, Decl(elaboratedParentCompatibility.ts, 48, 62))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 48, 24))
+>P : Symbol(P, Decl(elaboratedParentCompatibility.ts, 48, 77))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 48, 24))
+>Brand : Symbol(Brand, Decl(elaboratedParentCompatibility.ts, 46, 1))
+>T : Symbol(T, Decl(elaboratedParentCompatibility.ts, 48, 24))
+>P : Symbol(P, Decl(elaboratedParentCompatibility.ts, 48, 77))
+
+const wrapped = create({ first: { view: 0, styleMedia: "???" } });
+>wrapped : Symbol(wrapped, Decl(elaboratedParentCompatibility.ts, 49, 5))
+>create : Symbol(create, Decl(elaboratedParentCompatibility.ts, 47, 39))
+>first : Symbol(first, Decl(elaboratedParentCompatibility.ts, 49, 24))
+>view : Symbol(view, Decl(elaboratedParentCompatibility.ts, 49, 33))
+>styleMedia : Symbol(styleMedia, Decl(elaboratedParentCompatibility.ts, 49, 42))
+
+const vs: ViewStyle = wrapped.first // error, first is a branded number
+>vs : Symbol(vs, Decl(elaboratedParentCompatibility.ts, 50, 5))
+>ViewStyle : Symbol(ViewStyle, Decl(elaboratedParentCompatibility.ts, 40, 17))
+>wrapped.first : Symbol(first, Decl(elaboratedParentCompatibility.ts, 49, 24))
+>wrapped : Symbol(wrapped, Decl(elaboratedParentCompatibility.ts, 49, 5))
+>first : Symbol(first, Decl(elaboratedParentCompatibility.ts, 49, 24))
+

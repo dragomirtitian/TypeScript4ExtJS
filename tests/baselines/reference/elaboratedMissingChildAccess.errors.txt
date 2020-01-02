@@ -1,0 +1,175 @@
+tests/cases/compiler/elaboratedMissingChildAccess.ts(20,8): error TS2740: Type 'Person' is missing the following properties from type 'House': isHouseOfPain, occupants, heatingBill, waterBill, and 3 more.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(21,5): error TS2322: Type 'House' is not assignable to type 'boolean'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(22,5): error TS2322: Type 'House' is not assignable to type 'number'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(23,23): error TS2740: Type 'Person' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 37 more.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(24,5): error TS2322: Type 'Person' is not assignable to type 'Date'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(27,5): error TS2322: Type 'typeof W' is not assignable to type 'W'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(30,5): error TS2564: Property 'name' has no initializer and is not definitely assigned in the constructor.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(32,13): error TS2322: Type 'this' is not assignable to type 'string'.
+  Type 'C' is not assignable to type 'string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(38,5): error TS2322: Type 'C' is not assignable to type '() => string'.
+  Type 'C' provides no match for the signature '(): string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(40,6): error TS2322: Type 'C' is not assignable to type '() => string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(41,1): error TS2322: Type 'C' is not assignable to type '() => string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(45,5): error TS2322: Type 'T' is not assignable to type 'string'.
+  Type '{ value: string; }' is not assignable to type 'string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(52,5): error TS2322: Type 'U' is not assignable to type 'string'.
+  Type '{ a: string; c: boolean; }' is not assignable to type 'string'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(53,5): error TS2322: Type 'U' is not assignable to type 'boolean'.
+  Type '{ a: string; c: boolean; }' is not assignable to type 'boolean'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(56,9): error TS2322: Type '{ a: string; c: boolean; }' is not assignable to type 'boolean'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(60,7): error TS2322: Type 'Object' is not assignable to type '(v: Object) => boolean'.
+  The 'Object' type is assignable to very few other types. Did you mean to use the 'any' type instead?
+    Type 'Object' provides no match for the signature '(v: Object): boolean'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(63,7): error TS2322: Type 'Function' is not assignable to type 'number'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(66,7): error TS2322: Type 'number[]' is not assignable to type 'number'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(67,58): error TS2322: Type 'number[]' is not assignable to type '<U>(callbackfn: (value: number) => U) => U[]'.
+  Type 'number[]' provides no match for the signature '<U>(callbackfn: (value: number) => U): U[]'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(73,22): error TS2559: Type '{ prop: { a: number; }; prop2: { c: number; }; }' has no properties in common with type 'WeakType'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(74,5): error TS2322: Type '{ prop: { a: number; }; prop2: { c: number; }; }' is not assignable to type 'Record<string, number>'.
+  Property 'prop' is incompatible with index signature.
+    Type '{ a: number; }' is not assignable to type 'number'.
+tests/cases/compiler/elaboratedMissingChildAccess.ts(75,49): error TS2322: Type '{ prop: { a: number; }; prop2: { c: number; }; }' is not assignable to type '{ c: number; } & Record<string, number>'.
+  Property 'c' is missing in type '{ prop: { a: number; }; prop2: { c: number; }; }' but required in type '{ c: number; }'.
+
+
+==== tests/cases/compiler/elaboratedMissingChildAccess.ts (22 errors) ====
+    interface Person {
+        residence: House;
+        birthDay: Date;
+        anniversary?: Date
+    }
+    
+    interface House {
+        isHouseOfPain: boolean;
+        occupants: number;
+        heatingBill: number;
+        waterBill: number;
+        gasBill: number;
+        size: number;
+        rooms: number;
+    }
+    
+    declare let home: House;
+    declare let person: Person; 
+    
+    home = person;  // Suggest residence
+           ~~~~~~
+!!! error TS2740: Type 'Person' is missing the following properties from type 'House': isHouseOfPain, occupants, heatingBill, waterBill, and 3 more.
+!!! related TS6230 tests/cases/compiler/elaboratedMissingChildAccess.ts:20:8: Did you mean to access the 'residence' property on 'person' instead?
+    let isHouseOfPain: boolean = home; // Suggest isHouseOfPain
+        ~~~~~~~~~~~~~
+!!! error TS2322: Type 'House' is not assignable to type 'boolean'.
+    let bill: number = home; /// To many possibilities, do not make suggestions
+        ~~~~
+!!! error TS2322: Type 'House' is not assignable to type 'number'.
+    let someDate: Date  = person; // Suggest birthDay
+                          ~~~~~~
+!!! error TS2740: Type 'Person' is missing the following properties from type 'Date': toDateString, toTimeString, toLocaleDateString, toLocaleTimeString, and 37 more.
+!!! related TS6230 tests/cases/compiler/elaboratedMissingChildAccess.ts:23:23: Did you mean to access the 'birthDay' property on 'person' instead?
+    let someDateOrUndefined: Date | undefined  = person; // Suggest birthDay or anniversary
+        ~~~~~~~~~~~~~~~~~~~
+!!! error TS2322: Type 'Person' is not assignable to type 'Date'.
+    
+    enum W { A, B, C }
+    let w: W = W;  // Special suggestion for enums
+        ~
+!!! error TS2322: Type 'typeof W' is not assignable to type 'W'.
+    
+    class C {
+        name: string;
+        ~~~~
+!!! error TS2564: Property 'name' has no initializer and is not definitely assigned in the constructor.
+        method () {
+            let name: string = this; // Suggestion on this
+                ~~~~
+!!! error TS2322: Type 'this' is not assignable to type 'string'.
+!!! error TS2322:   Type 'C' is not assignable to type 'string'.
+            return name;
+        }
+    }
+    
+    declare function getC(): C;
+    let fn: () => string = new C(); // No suggestion here
+        ~~
+!!! error TS2322: Type 'C' is not assignable to type '() => string'.
+!!! error TS2322:   Type 'C' provides no match for the signature '(): string'.
+    let cInstance = new C();
+    fn = cInstance; // Suggestion here 
+         ~~~~~~~~~
+!!! error TS2322: Type 'C' is not assignable to type '() => string'.
+!!! related TS6230 tests/cases/compiler/elaboratedMissingChildAccess.ts:40:6: Did you mean to access the 'method' property on 'cInstance' instead?
+    fn = getC() // No suggestion here either
+    ~~
+!!! error TS2322: Type 'C' is not assignable to type '() => string'.
+    
+    
+    function g<T extends { value: string }>(o: T): string {
+        return o; // Suggestion on type parameter
+        ~~~~~~~~~
+!!! error TS2322: Type 'T' is not assignable to type 'string'.
+!!! error TS2322:   Type '{ value: string; }' is not assignable to type 'string'.
+    }
+    
+    
+    type U = { a: string, c: boolean } | { a: string, d: number, e: string }
+    
+    declare let u: U;
+    let a: string = u;
+        ~
+!!! error TS2322: Type 'U' is not assignable to type 'string'.
+!!! error TS2322:   Type '{ a: string; c: boolean; }' is not assignable to type 'string'.
+    let c: boolean = u; // No suggestion here
+        ~
+!!! error TS2322: Type 'U' is not assignable to type 'boolean'.
+!!! error TS2322:   Type '{ a: string; c: boolean; }' is not assignable to type 'boolean'.
+    
+    if( 'c' in u) {
+        let c2: boolean = u; // Suggestion here 
+            ~~
+!!! error TS2322: Type '{ a: string; c: boolean; }' is not assignable to type 'boolean'.
+    }
+    
+    declare const o: Object;
+    const fn2: (v: Object) => boolean = o; // No suggestions from Object (isPrototypeOf) would be valid
+          ~~~
+!!! error TS2322: Type 'Object' is not assignable to type '(v: Object) => boolean'.
+!!! error TS2322:   The 'Object' type is assignable to very few other types. Did you mean to use the 'any' type instead?
+!!! error TS2322:     Type 'Object' provides no match for the signature '(v: Object): boolean'.
+    
+    declare const f: Function;
+    const fnLength: number = f // No suggestions from Function 
+          ~~~~~~~~
+!!! error TS2322: Type 'Function' is not assignable to type 'number'.
+    
+    declare const arr: number[];
+    const arrLength: number = arr // Suggest length from array
+          ~~~~~~~~~
+!!! error TS2322: Type 'number[]' is not assignable to type 'number'.
+    const fn3: <U>(callbackfn: (value: number) => U) => U[]= arr; // Suggest 'map', 'filter', 'flatMap'
+                                                             ~~~
+!!! error TS2322: Type 'number[]' is not assignable to type '<U>(callbackfn: (value: number) => U) => U[]'.
+!!! error TS2322:   Type 'number[]' provides no match for the signature '<U>(callbackfn: (value: number) => U): U[]'.
+!!! related TS6231 tests/cases/compiler/elaboratedMissingChildAccess.ts:67:58: Did you mean to access one of these 'map', 'filter' properties on 'arr' instead?
+    
+    type WeakType = { a?: number; b?: number; }
+    declare let ow: { prop: { a: number }, prop2: { c: number} };
+    declare let pow: { ow: typeof ow }
+    
+    let weak: WeakType = ow // Suggest prop
+                         ~~
+!!! error TS2559: Type '{ prop: { a: number; }; prop2: { c: number; }; }' has no properties in common with type 'WeakType'.
+!!! related TS6230 tests/cases/compiler/elaboratedMissingChildAccess.ts:73:22: Did you mean to access the 'prop' property on 'ow' instead?
+    let r: Record<string, number> = ow // No suggestion if target type just has an index signature (prop and prop2 would be valid)
+        ~
+!!! error TS2322: Type '{ prop: { a: number; }; prop2: { c: number; }; }' is not assignable to type 'Record<string, number>'.
+!!! error TS2322:   Property 'prop' is incompatible with index signature.
+!!! error TS2322:     Type '{ a: number; }' is not assignable to type 'number'.
+    let r2: {c: number } & Record<string, number> = ow // prop2 suggested
+                                                    ~~
+!!! error TS2322: Type '{ prop: { a: number; }; prop2: { c: number; }; }' is not assignable to type '{ c: number; } & Record<string, number>'.
+!!! error TS2322:   Property 'c' is missing in type '{ prop: { a: number; }; prop2: { c: number; }; }' but required in type '{ c: number; }'.
+!!! related TS2728 tests/cases/compiler/elaboratedMissingChildAccess.ts:75:10: 'c' is declared here.
+!!! related TS6230 tests/cases/compiler/elaboratedMissingChildAccess.ts:75:49: Did you mean to access the 'prop2' property on 'ow' instead?
+    
+    
