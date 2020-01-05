@@ -4158,7 +4158,8 @@ namespace ts {
             const tags = (getJSDocPublicTag(node) ? ModifierFlags.Public : ModifierFlags.None)
                 | (getJSDocPrivateTag(node) ? ModifierFlags.Private : ModifierFlags.None)
                 | (getJSDocProtectedTag(node) ? ModifierFlags.Protected : ModifierFlags.None)
-                | (getJSDocReadonlyTag(node) ? ModifierFlags.Readonly : ModifierFlags.None);
+                | (getJSDocReadonlyTag(node) ? ModifierFlags.Readonly : ModifierFlags.None)
+                | (getJSDocAbstractTag(node) ? ModifierFlags.Abstract : ModifierFlags.None);
             flags |= tags;
         }
 

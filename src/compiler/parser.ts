@@ -512,6 +512,7 @@ namespace ts {
                 return forEach((node as JSDocTypeLiteral).jsDocPropertyTags, cbNode);
             case SyntaxKind.JSDocTag:
             case SyntaxKind.JSDocClassTag:
+            case SyntaxKind.JSDocAbstractTag:
             case SyntaxKind.JSDocPublicTag:
             case SyntaxKind.JSDocPrivateTag:
             case SyntaxKind.JSDocProtectedTag:
@@ -6881,6 +6882,9 @@ namespace ts {
                         case "class":
                         case "constructor":
                             tag = parseSimpleTag(start, SyntaxKind.JSDocClassTag, tagName);
+                            break;
+                        case "abstract":
+                            tag = parseSimpleTag(start, SyntaxKind.JSDocAbstractTag, tagName);
                             break;
                         case "public":
                             tag = parseSimpleTag(start, SyntaxKind.JSDocPublicTag, tagName);

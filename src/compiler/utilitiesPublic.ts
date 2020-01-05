@@ -696,6 +696,12 @@ namespace ts {
         return getFirstJSDocTag(node, isJSDocReadonlyTag);
     }
 
+    /** Gets the JSDoc abstract tag for the node if present */
+    export function getJSDocAbstractTag(node: Node): JSDocAbstractTag | undefined {
+        return getFirstJSDocTag(node, isJSDocAbstractTag);
+    }
+
+
     /** Gets the JSDoc enum tag for the node if present */
     export function getJSDocEnumTag(node: Node): JSDocEnumTag | undefined {
         return getFirstJSDocTag(node, isJSDocEnumTag);
@@ -1580,6 +1586,10 @@ namespace ts {
 
     export function isJSDocAugmentsTag(node: Node): node is JSDocAugmentsTag {
         return node.kind === SyntaxKind.JSDocAugmentsTag;
+    }
+
+    export function isJSDocAbstractTag(node: Node): node is JSDocAbstractTag {
+        return node.kind === SyntaxKind.JSDocAbstractTag;
     }
 
     export function isJSDocClassTag(node: Node): node is JSDocClassTag {

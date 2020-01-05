@@ -470,6 +470,7 @@ namespace ts {
         JSDocAugmentsTag,
         JSDocAuthorTag,
         JSDocClassTag,
+        JSDocAbstractTag,
         JSDocPublicTag,
         JSDocPrivateTag,
         JSDocProtectedTag,
@@ -2650,6 +2651,10 @@ namespace ts {
 
     export interface JSDocClassTag extends JSDocTag {
         kind: SyntaxKind.JSDocClassTag;
+    }
+
+    export interface JSDocAbstractTag extends JSDocTag {
+        kind: SyntaxKind.JSDocAbstractTag;
     }
 
     export interface JSDocPublicTag extends JSDocTag {
