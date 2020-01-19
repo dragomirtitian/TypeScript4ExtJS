@@ -6,11 +6,11 @@ namespace ts.codefix {
      * @param possiblyMissingSymbols The collection of symbols to filter and then get insertions for.
      * @returns Empty string iff there are no member insertions.
      */
-    export function createMissingMemberNodes(classDeclaration: ClassLikeDeclaration, possiblyMissingSymbols: readonly Symbol[], context: TypeConstructionContext, preferences: UserPreferences, out: (node: ClassElement) => void): void {
+    export function createMissingMemberNodes(classDeclaration: ClassLikeDeclaration, possiblyMissingSymbols: readonly Symbol[], context: TypeConstructionContext, isJs: boolean, preferences: UserPreferences, out: (node: ClassElement) => void): void {
         const classMembers = classDeclaration.symbol.members!;
         for (const symbol of possiblyMissingSymbols) {
             if (!classMembers.has(symbol.escapedName)) {
-                addNewNodeForMemberSymbol(symbol, classDeclaration, context, preferences, out);
+                addNewNodeForMemberSymbol(symbol, classDeclaration, context, isJs, preferences, out);
             }
         }
     }
@@ -42,7 +42,7 @@ namespace ts.codefix {
     /**
      * @returns Empty string iff there we can't figure out a representation for `symbol` in `enclosingDeclaration`.
      */
-    function addNewNodeForMemberSymbol(symbol: Symbol, enclosingDeclaration: ClassLikeDeclaration, context: TypeConstructionContext, preferences: UserPreferences, out: (node: Node) => void): void {
+    function addNewNodeForMemberSymbol(symbol: Symbol, enclosingDeclaration: ClassLikeDeclaration, context: TypeConstructionContext, isJs: boolean, preferences: UserPreferences, out: (node: Node) => void): void {
         const declarations = symbol.getDeclarations();
         if (!(declarations && declarations.length)) {
             return undefined;
@@ -78,24 +78,39 @@ namespace ts.codefix {
                     : [allAccessors.firstAccessor];
                 for (const accessor of orderedAccessors) {
                     if (isGetAccessorDeclaration(accessor)) {
-                        out(createGetAccessor(
+                        const getter = createGetAccessor(
                             /*decorators*/ undefined,
                             modifiers,
                             name,
                             emptyArray,
                             typeNode,
-                            ambient ? undefined : createStubbedMethodBody(preferences)));
+                            ambient ? undefined : createStubbedMethodBody(preferences));
+
+                        if (isJs) {
+                            const typeName = checker.typeToString(type);
+                            getter.type = undefined;
+                            addSyntheticLeadingComment(getter, SyntaxKind.MultiLineCommentTrivia, `* @returns  {${typeName}}`, true)
+                        }
+                        out(getter);
                     }
                     else {
                         Debug.assertNode(accessor, isSetAccessorDeclaration, "The counterpart to a getter should be a setter");
                         const parameter = getSetAccessorValueParameter(accessor);
                         const parameterName = parameter && isIdentifier(parameter.name) ? idText(parameter.name) : undefined;
-                        out(createSetAccessor(
+
+                        const setter = createSetAccessor(
                             /*decorators*/ undefined,
                             modifiers,
                             name,
-                            createDummyParameters(1, [parameterName], [typeNode], 1, /*inJs*/ false),
-                            ambient ? undefined : createStubbedMethodBody(preferences)));
+                            createDummyParameters(1, [parameterName], [typeNode], 1, /*inJs*/ isJs),
+                            ambient ? undefined : createStubbedMethodBody(preferences));
+
+                        if (isJs) {
+                            const typeName = checker.typeToString(type);
+                            addSyntheticLeadingComment(setter, SyntaxKind.MultiLineCommentTrivia, `* @param ${parameterName} {${typeName}}`, true);
+                        }
+
+                        out(setter);
                     }
                 }
                 break;
@@ -117,19 +132,19 @@ namespace ts.codefix {
                 if (declarations.length === 1) {
                     Debug.assert(signatures.length === 1, "One declaration implies one signature");
                     const signature = signatures[0];
-                    outputMethod(signature, modifiers, name, ambient ? undefined : createStubbedMethodBody(preferences));
+                    outputMethod(signature, modifiers, name, isJs, ambient ? undefined : createStubbedMethodBody(preferences));
                     break;
                 }
 
                 for (const signature of signatures) {
                     // Need to ensure nodes are fresh each time so they can have different positions.
-                    outputMethod(signature, getSynthesizedDeepClones(modifiers, /*includeTrivia*/ false), getSynthesizedDeepClone(name, /*includeTrivia*/ false));
+                    outputMethod(signature, getSynthesizedDeepClones(modifiers, /*includeTrivia*/ false), getSynthesizedDeepClone(name, /*includeTrivia*/ false), isJs);
                 }
 
                 if (!ambient) {
                     if (declarations.length > signatures.length) {
                         const signature = checker.getSignatureFromDeclaration(declarations[declarations.length - 1] as SignatureDeclaration)!;
-                        outputMethod(signature, modifiers, name, createStubbedMethodBody(preferences));
+                        outputMethod(signature, modifiers, name, isJs, createStubbedMethodBody(preferences));
                     }
                     else {
                         Debug.assert(declarations.length === signatures.length, "Declarations and signatures should match count");
@@ -139,8 +154,8 @@ namespace ts.codefix {
                 break;
         }
 
-        function outputMethod(signature: Signature, modifiers: NodeArray<Modifier> | undefined, name: PropertyName, body?: Block): void {
-            const method = signatureToMethodDeclaration(context, signature, enclosingDeclaration, modifiers, name, optional, body);
+        function outputMethod(signature: Signature, modifiers: NodeArray<Modifier> | undefined, name: PropertyName, isJs: boolean, body?: Block): void {
+            const method = signatureToMethodDeclaration(context, signature, enclosingDeclaration, modifiers, name, optional, isJs, body);
             if (method) out(method);
         }
     }
@@ -152,6 +167,7 @@ namespace ts.codefix {
         modifiers: NodeArray<Modifier> | undefined,
         name: PropertyName,
         optional: boolean,
+        isJs: boolean,
         body: Block | undefined,
     ): MethodDeclaration | undefined {
         const program = context.program;
@@ -159,8 +175,15 @@ namespace ts.codefix {
         if (!signatureDeclaration) {
             return undefined;
         }
+        if(isJs) {
+            const chekcer = context.program.getTypeChecker();
+
+            forEach(signatureDeclaration.parameters, p => p.type = undefined);
+            signatureDeclaration.type = undefined;
+        }
 
         signatureDeclaration.decorators = undefined;
+        signatureDeclaration.type = undefined;
         signatureDeclaration.modifiers = modifiers;
         signatureDeclaration.name = name;
         signatureDeclaration.questionToken = optional ? createToken(SyntaxKind.QuestionToken) : undefined;

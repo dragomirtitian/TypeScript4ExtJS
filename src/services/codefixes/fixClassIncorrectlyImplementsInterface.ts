@@ -10,8 +10,10 @@ namespace ts.codefix {
         getCodeActions(context) {
             const { sourceFile, span } = context;
             const classDeclaration = getClass(sourceFile, span.start);
+            const declSourceFile = classDeclaration.getSourceFile();
+            const inJs = isSourceFileJS(declSourceFile);
             return mapDefined<ExpressionWithTypeArguments, CodeFixAction>(getEffectiveImplementsTypeNodes(classDeclaration), implementedTypeNode => {
-                const changes = textChanges.ChangeTracker.with(context, t => addMissingDeclarations(context, implementedTypeNode, sourceFile, classDeclaration, t, context.preferences));
+                const changes = textChanges.ChangeTracker.with(context, t => addMissingDeclarations(context, implementedTypeNode, sourceFile, classDeclaration, t, inJs, context.preferences));
                 return changes.length === 0 ? undefined : createCodeFixAction(fixId, changes, [Diagnostics.Implement_interface_0, implementedTypeNode.getText(sourceFile)], fixId, Diagnostics.Implement_all_unimplemented_interfaces);
             });
         },
@@ -21,8 +23,10 @@ namespace ts.codefix {
             return codeFixAll(context, errorCodes, (changes, diag) => {
                 const classDeclaration = getClass(diag.file, diag.start);
                 if (addToSeen(seenClassDeclarations, getNodeId(classDeclaration))) {
+                    const declSourceFile = classDeclaration.getSourceFile();
+                    const inJs = isSourceFileJS(declSourceFile);
                     for (const implementedTypeNode of getEffectiveImplementsTypeNodes(classDeclaration)!) {
-                        addMissingDeclarations(context, implementedTypeNode, diag.file, classDeclaration, changes, context.preferences);
+                        addMissingDeclarations(context, implementedTypeNode, diag.file, classDeclaration, changes, inJs, context.preferences);
                     }
                 }
             });
@@ -43,6 +47,7 @@ namespace ts.codefix {
         sourceFile: SourceFile,
         classDeclaration: ClassLikeDeclaration,
         changeTracker: textChanges.ChangeTracker,
+        inJs: boolean,
         preferences: UserPreferences,
     ): void {
         const checker = context.program.getTypeChecker();
@@ -56,14 +61,16 @@ namespace ts.codefix {
         const classType = checker.getTypeAtLocation(classDeclaration);
         const constructor = find(classDeclaration.members, m => isConstructorDeclaration(m));
 
-        if (!classType.getNumberIndexType()) {
-            createMissingIndexSignatureDeclaration(implementedType, IndexKind.Number);
-        }
-        if (!classType.getStringIndexType()) {
-            createMissingIndexSignatureDeclaration(implementedType, IndexKind.String);
+        if(!inJs) {
+            if (!classType.getNumberIndexType()) {
+                createMissingIndexSignatureDeclaration(implementedType, IndexKind.Number);
+            }
+            if (!classType.getStringIndexType()) {
+                createMissingIndexSignatureDeclaration(implementedType, IndexKind.String);
+            }
         }
 
-        createMissingMemberNodes(classDeclaration, nonPrivateAndNotExistedInHeritageClauseMembers, context, preferences, member => insertInterfaceMemberNode(sourceFile, classDeclaration, member));
+        createMissingMemberNodes(classDeclaration, nonPrivateAndNotExistedInHeritageClauseMembers, context, inJs, preferences, member => insertInterfaceMemberNode(sourceFile, classDeclaration, member));
 
         function createMissingIndexSignatureDeclaration(type: InterfaceType, kind: IndexKind): void {
             const indexInfoOfKind = checker.getIndexInfoOfType(type, kind);
