@@ -26283,6 +26283,11 @@ namespace ts {
                 const expr = returnStatement.expression;
                 if (expr) {
                     let type = checkExpressionCached(expr, checkMode && checkMode & ~CheckMode.SkipGenericFunctions);
+                    let node = createIdentifier(idText(func.parameters[0].name as Identifier));
+                    node.flowNode = returnStatement.truePostReturnNode;
+                    node.parent = returnStatement;
+                    let flowType = checkExpressionCached(node);
+                    console.log(typeToString(flowType));
                     if (functionFlags & FunctionFlags.Async) {
                         // From within an async function you can return either a non-promise value or a promise. Any
                         // Promise/A+ compatible implementation will always assimilate any foreign promise, so the

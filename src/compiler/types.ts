@@ -2260,6 +2260,7 @@ namespace ts {
     export interface ReturnStatement extends Statement {
         kind: SyntaxKind.ReturnStatement;
         expression?: Expression;
+        truePostReturnNode: FlowNode;
     }
 
     export interface WithStatement extends Statement {

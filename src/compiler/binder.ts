@@ -783,8 +783,10 @@ namespace ts {
                     bindIfStatement(<IfStatement>node);
                     break;
                 case SyntaxKind.ReturnStatement:
+                    bindReturn(<ReturnStatement>node);
+                    break;
                 case SyntaxKind.ThrowStatement:
-                    bindReturnOrThrow(<ReturnStatement | ThrowStatement>node);
+                    bindThrow(<ThrowStatement>node);
                     break;
                 case SyntaxKind.BreakStatement:
                 case SyntaxKind.ContinueStatement:
@@ -1166,14 +1168,28 @@ namespace ts {
             currentFlow = finishFlowLabel(postIfLabel);
         }
 
-        function bindReturnOrThrow(node: ReturnStatement | ThrowStatement): void {
-            bind(node.expression);
-            if (node.kind === SyntaxKind.ReturnStatement) {
-                hasExplicitReturn = true;
-                if (currentReturnTarget) {
-                    addAntecedent(currentReturnTarget, currentFlow);
-                }
+        function bindReturn(node: ReturnStatement): void {
+            const isPotentialGuard = node.expression &&
+                (isNarrowingExpression(node.expression) || node.expression.kind === SyntaxKind.TrueKeyword);
+            if(isPotentialGuard){
+                const thenLabel = createBranchLabel();
+                const elseLabel = createBranchLabel();
+                bindCondition(node.expression, thenLabel, elseLabel);
+                node.truePostReturnNode = finishFlowLabel(thenLabel);
             }
+            else {
+                bind(node.expression);
+            }
+
+            hasExplicitReturn = true;
+            if (currentReturnTarget) {
+                addAntecedent(currentReturnTarget, currentFlow);
+            }
+            currentFlow = unreachableFlow;
+        }
+
+        function bindThrow(node: ThrowStatement): void {
+            bind(node.expression);
             currentFlow = unreachableFlow;
         }
 
