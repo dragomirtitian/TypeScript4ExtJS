@@ -27588,7 +27588,9 @@ namespace ts {
         }
 
         function checkConditionalExpression(node: ConditionalExpression, checkMode?: CheckMode): Type {
-            checkTruthinessExpression(node.condition);
+            const conditionType = checkTruthinessExpression(node.condition);
+            checkTestingKnownTruthyCallableType(node.condition, node.whenTrue, conditionType);
+
             const type1 = checkExpression(node.whenTrue, checkMode);
             const type2 = checkExpression(node.whenFalse, checkMode);
             return getUnionType([type1, type2], UnionReduction.Subtype);
@@ -30696,7 +30698,7 @@ namespace ts {
             checkGrammarStatementInAmbientContext(node);
 
             const type = checkTruthinessExpression(node.expression);
-            checkTestingKnownTruthyCallableType(node, type);
+            checkTestingKnownTruthyCallableType(node.expression, node.thenStatement, type);
             checkSourceElement(node.thenStatement);
 
             if (node.thenStatement.kind === SyntaxKind.EmptyStatement) {
@@ -30706,15 +30708,15 @@ namespace ts {
             checkSourceElement(node.elseStatement);
         }
 
-        function checkTestingKnownTruthyCallableType(ifStatement: IfStatement, type: Type) {
+        function checkTestingKnownTruthyCallableType(testExpression: Expression, thenNode: Node, type: Type) {
             if (!strictNullChecks) {
                 return;
             }
 
-            const testedNode = isIdentifier(ifStatement.expression)
-                ? ifStatement.expression
-                : isPropertyAccessExpression(ifStatement.expression)
-                    ? ifStatement.expression.name
+            const testedNode = isIdentifier(testExpression)
+                ? testExpression
+                : isPropertyAccessExpression(testExpression)
+                    ? testExpression.name
                     : undefined;
 
             if (!testedNode) {
@@ -30741,7 +30743,7 @@ namespace ts {
                 return;
             }
 
-            const functionIsUsedInBody = forEachChild(ifStatement.thenStatement, function check(childNode): boolean | undefined {
+            const functionIsUsedInBody = forEachChild(thenNode, function check(childNode): boolean | undefined {
                 if (isIdentifier(childNode)) {
                     const childSymbol = getSymbolAtLocation(childNode);
                     if (childSymbol && childSymbol.id === testedFunctionSymbol.id) {
@@ -30753,7 +30755,7 @@ namespace ts {
             });
 
             if (!functionIsUsedInBody) {
-                error(ifStatement.expression, Diagnostics.This_condition_will_always_return_true_since_the_function_is_always_defined_Did_you_mean_to_call_it_instead);
+                error(testExpression, Diagnostics.This_condition_will_always_return_true_since_the_function_is_always_defined_Did_you_mean_to_call_it_instead);
             }
         }
 
