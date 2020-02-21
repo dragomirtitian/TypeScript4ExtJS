@@ -856,6 +856,11 @@ namespace ts.Completions {
                         insideJsDocTagTypeExpression = isCurrentlyEditingNode(tag.typeExpression);
                     }
                 }
+                if (isHeritageTag(tag) && tag.class && tag.class.kind === SyntaxKind.ExpressionWithTypeArguments) {
+                    currentToken = getTokenAtPosition(sourceFile, position);
+                    // Use as type location if inside tag's class expression
+                    insideJsDocTagTypeExpression = isCurrentlyEditingNode(tag.class);
+                }
                 if (!insideJsDocTagTypeExpression && isJSDocParameterTag(tag) && (nodeIsMissing(tag.name) || tag.name.pos <= position && position <= tag.name.end)) {
                     return { kind: CompletionDataKind.JsDocParameterName, tag };
                 }
@@ -1077,6 +1082,18 @@ namespace ts.Completions {
                 case SyntaxKind.JSDocReturnTag:
                 case SyntaxKind.JSDocTypeTag:
                 case SyntaxKind.JSDocTypedefTag:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        type JSDocHeritageTag = JSDocImplementsTag | JSDocAugmentsTag;
+
+        function isHeritageTag(tag: JSDocTag): tag is JSDocHeritageTag {
+            switch (tag.kind) {
+                case SyntaxKind.JSDocAugmentsTag:
+                case SyntaxKind.JSDocImplementsTag:
                     return true;
                 default:
                     return false;
